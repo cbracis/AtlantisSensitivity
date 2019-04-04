@@ -1,6 +1,7 @@
 rm(list = ls())
 gc()
 library(ggplot2)
+library(dplyr)
 
 SR_ICES <- read.table("files/ICES_SR_variability_2018advices.csv", sep = ",", dec =".", header = T)
 SR_ICES$ICES_Blim <- as.numeric(SR_ICES$ICES_Blim)
@@ -36,11 +37,14 @@ ggplot(data = SR_ICES, aes(x = species, y = ICES_recruit_error, fill = species))
 ggplot(data = SR_ICES, aes(x = species, y = ICES_recruit_norm_error, fill = species)) + geom_boxplot() + theme(axis.title.x=element_blank(),
                                                                                                                axis.text.x=element_blank(),
                                                                                                                axis.ticks.x=element_blank())
+# delete species that don't have Atlantis group equivalents
+SR_ICES <- SR_ICES[!is.na(SR_ICES_AEEC$AEEC_group) | SR_ICES$AEEC_group != "",]
+
+# pool all species to make overall ALL estimate to use for unassesed species
 SR_ICES$AEEC_group <- as.character(SR_ICES$AEEC_group)
 SR_ICES_AEEC <- SR_ICES
 SR_ICES_AEEC$AEEC_group <- "ALL"
 SR_ICES_AEEC <- rbind(SR_ICES, SR_ICES_AEEC)
-SR_ICES_AEEC <- SR_ICES_AEEC[!is.na(SR_ICES_AEEC$AEEC_group) & SR_ICES_AEEC$AEEC_group != "",]
 
 ggplot(data = SR_ICES_AEEC, aes(x = AEEC_group, y = ICES_recruit_error, fill = AEEC_group)) + geom_boxplot() + theme(axis.title.x=element_blank(),
                                                                                                           axis.text.x=element_blank(),
