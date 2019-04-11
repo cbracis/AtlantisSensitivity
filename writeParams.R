@@ -1,5 +1,6 @@
 require(atlantistools)
 require(dplyr)
+library(tools)
 source("utilityFuncs.R")
 # write some parameter files
 
@@ -7,14 +8,18 @@ create_sim_param_files = function(sa_design, param_bounds, base_biology_param_fi
 {
   sa_design = add_juv_C(sa_design, JUV_C_GROUPS)
   sa_design = add_mum_from_c(sa_design)
+  
   sa_values = get_values_from_levels(sa_design, param_bounds)
   sa_values = combine_mortality_age_params(sa_values)
+  sa_values = translate_juv_C_mum(sa_values, JUV_C_GROUPS)
+  sa_values = translate_KDENR(sa_values)
   
   params = names(sa_values %>% select(-simID)) 
+  print(params)
 
   for (s in 1:nrow(sa_values))
   {
-    simID = sa_design$simID[s]
+    simID = sa_values$simID[s]
     param_file = create_file(output_directory, base_biology_param_file, simID)
     
     for (p in params)
@@ -39,6 +44,7 @@ add_mum_from_c = function(sa_design)
 
 # this is for things like CEP that have C_CEP_T15 and C_jCEP_T15 to have juvenile and adult C and mum
 # maybe could look up groups in fgs file (but is NumCohorts = 2 vs 10 or GroupType = CEP that controls this?)
+# this just adds a corresponding _juv for any _adult that is in the design matrix for the specified groups
 add_juv_C = function(sa_design, group_codes)
 {
   idxs = NULL
@@ -47,12 +53,41 @@ add_juv_C = function(sa_design, group_codes)
     idxs = c(idxs, grep(paste0("^C_", code, ".*"), names(sa_design)) )
   }
   juv_matrix = sa_design[,idxs, drop = FALSE]
-  names(juv_matrix) = gsub("^C_", "C_j", names(juv_matrix))
+  names(juv_matrix) = gsub("adult", "juv", names(juv_matrix))
   sa_design = cbind(sa_design, juv_matrix)
 
   return(sa_design)
 }
 
+# after parameter bounds are established, we need to change the _juv and _adult to the proper forms 
+# to be written as parameters, this means making both end in _single and the code be XXX and jXXX
+# needs to happen for C and mum
+translate_juv_C_mum = function(sa_design, group_codes)
+{
+  for (code in group_codes)
+  {
+    names(sa_design) = gsub(paste0("^C_", code, "_", PARAM_SUFFIX_ADULT), 
+                            paste0("C_", code, "_", PARAM_SUFFIX_SINGLE), names(sa_design))
+    names(sa_design) = gsub(paste0("^C_", code, "_", PARAM_SUFFIX_JUVENILE), 
+                            paste0("C_j", code, "_", PARAM_SUFFIX_SINGLE), names(sa_design))
+    names(sa_design) = gsub(paste0("^mum_", code, "_", PARAM_SUFFIX_ADULT), 
+                            paste0("mum_", code, "_", PARAM_SUFFIX_SINGLE), names(sa_design))
+    names(sa_design) = gsub(paste0("^mum_", code, "_", PARAM_SUFFIX_JUVENILE), 
+                            paste0("mum_j", code, "_", PARAM_SUFFIX_SINGLE), names(sa_design))
+  }
+  return(sa_design)
+}
+
+# KDENR is a single param (for how read in for the parameter compare) but technically an 
+# age-structured parameter of length 1, so we need to change this to write it correctly
+translate_KDENR = function(sa_design)
+{
+  names(sa_design) = gsub(paste0("^KDENR(.*)", PARAM_SUFFIX_SINGLE), 
+                          paste0("KDENR\\1", PARAM_SUFFIX_AGE), names(sa_design))
+  return(sa_design)
+}
+
+# substitite the 1, 2, 3, 4 from morris design for real parameter levels
 get_values_from_levels = function(sa_design, param_bounds)
 {
   params = names(sa_design)
@@ -64,6 +99,7 @@ get_values_from_levels = function(sa_design, param_bounds)
   return(sa_design)
 }
 
+# for age groups, need mortality juvenile and adult values in single vector
 combine_mortality_age_params = function(sa_values)
 {
   for (m in c("mL", "mQ"))
@@ -84,7 +120,7 @@ combine_mortality_age_params = function(sa_values)
       # clean up: rename juv to age, delete adult columns
       # match in 2 capture groups, \\1 refers to first group (don't want to change mQ at same time as mL)
       names(sa_values) = gsub(paste0("(^", m, "_.*)(", PARAM_SUFFIX_JUVENILE, ")"), 
-                              paste0("\\1", PARAM_SUFFIX_ADULT), 
+                              paste0("\\1", PARAM_SUFFIX_AGE), 
                               params)
       sa_values = sa_values[,-which(params %in% adult_params)]
     }
@@ -152,15 +188,14 @@ write_params = function(biol_param_file, param_df, params_to_change)
 
 
 
-# makes copy of param file in new folder
+# makes copy of param file with the simulation id appended to the name
 # for now go with the idea this will be an overlay, so just copy the biol prm, not everything
 create_file = function(root_dir, base_biol_prm_file, simulation_id)
 {
-  dir_name = paste0("sim_", simulation_id)
-  new_file_path = file.path(root_dir, dir_name)
+  new_file_name = paste0( file_path_sans_ext(basename(base_biol_prm_file)), simulation_id, file_ext(base_biol_prm_file) )
+  new_file_path = file.path(root_dir, new_file_name)
   
-  dir.create(new_file_path)
   file.copy(base_biol_prm_file, new_file_path)
   
-  return(file.path(new_file_path, basename(base_biol_prm_file)))
+  return(new_file_path)
 }
