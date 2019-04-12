@@ -10,7 +10,7 @@ design_matrix = read.csv(DESIGN_MATRIX_FILE, stringsAsFactors = FALSE)
 param_bounds = read.csv(PARAM_BOUNDS_FILE, stringsAsFactors = FALSE)
 
 
-create_sim_param_files(design_matrix, param_bounds, BASE_BIOL_PRM, OUTPUT_DIR)
+create_sim_param_files(design_matrix, param_bounds, BASE_BIOL_PRM_FILE, OUTPUT_DIR)
 
 
 
