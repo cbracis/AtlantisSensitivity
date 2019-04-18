@@ -86,3 +86,13 @@ get_group_long_names = function(groups, functional_groups_file)
   return(long_names)
 }
 
+# get the 2 or 3 letter code for species groups from the LongName (used by atlantistools in the summary data frames)
+get_codes_from_long_names = function(groups, functional_groups_file)
+{
+  fgs = load_fgs(functional_groups_file)
+  
+  codes = fgs$Code[match(groups, fgs$LongName)]
+  
+  return(codes)
+}
+
