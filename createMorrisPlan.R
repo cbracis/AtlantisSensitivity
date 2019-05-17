@@ -82,5 +82,11 @@ design_full = cbind(simID = ( 1:nrow(morris_full$X) ) + 10000, morris_full$X)
 write.csv(design_full, file = "files/design_matrix_full.csv", row.names = FALSE, quote = FALSE)
 dim(design_full)
 
+morris_opt = morris(model = NULL, factors = param_names, r = c(50, 200), 
+                    design = list(type = "oat", levels = 4, grid.jump = 2),
+                    binf = rep(1, length(param_names)), bsup = rep(4, length(param_names)))
+design_opt = cbind(simID = ( 1:nrow(morris_opt$X) ) + 10000, morris_opt$X)
+write.csv(design_opt, file = "files/design_matrix_opt.csv", row.names = FALSE, quote = FALSE)
+dim(design_opt)
 
 

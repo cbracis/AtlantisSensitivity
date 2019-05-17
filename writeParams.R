@@ -4,7 +4,7 @@ library(tools)
 source("utilityFuncs.R")
 # write some parameter files
 
-create_sim_param_files = function(sa_design, param_bounds, base_biology_param_file, output_directory)
+create_sim_param_files = function(sa_design, param_bounds, base_biology_param_file, output_directory, start = 1)
 {
   sa_design = add_juv_C(sa_design, JUV_C_GROUPS)
   sa_design = add_mum_from_c(sa_design)
@@ -15,9 +15,8 @@ create_sim_param_files = function(sa_design, param_bounds, base_biology_param_fi
   sa_values = translate_KDENR(sa_values)
   
   params = names(sa_values %>% select(-simID)) 
-  print(params)
 
-  for (s in 1:nrow(sa_values))
+  for (s in start:nrow(sa_values))
   {
     simID = sa_values$simID[s]
     param_file = create_file(output_directory, base_biology_param_file, simID)
@@ -192,7 +191,7 @@ write_params = function(biol_param_file, param_df, params_to_change)
 # for now go with the idea this will be an overlay, so just copy the biol prm, not everything
 create_file = function(root_dir, base_biol_prm_file, simulation_id)
 {
-  new_file_name = paste0( file_path_sans_ext(basename(base_biol_prm_file)), simulation_id, file_ext(base_biol_prm_file) )
+  new_file_name = paste0( file_path_sans_ext(basename(base_biol_prm_file)), simulation_id, ".", file_ext(base_biol_prm_file) )
   new_file_path = file.path(root_dir, new_file_name)
   
   file.copy(base_biol_prm_file, new_file_path)

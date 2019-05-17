@@ -46,6 +46,7 @@ create_param_bounds = function(func_groups_data, param_values, fitted_C_values, 
 get_group_codes = function(species_groups_df)
 {
   # don't include disabled groups or bacteria, detritus, carrion in the analysis
+  # TODO move to utilityFuncs
   bacteria_detritus_types = c("SED_BACT", "PL_BACT", "LAB_DET", "REF_DET", "CARRION")
   codes = species_groups_df %>% filter(IsTurnedOn == 1, !(GroupType %in% bacteria_detritus_types)) %>% pull(Code)
   return(codes)

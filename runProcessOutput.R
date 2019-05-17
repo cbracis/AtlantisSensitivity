@@ -31,7 +31,7 @@ aeec_prm_biol = file.path(aeec_root_path, paste0("AEEC_biol", sim_id, ".prm"))
 aeec_bgm = file.path( aeec_root_path, "..", "poly_atlantisEC35_projETRS89_LAEA_snapped0p002.bgm")
 aeec_fgs = file.path(aeec_root_path,"..", "SETasGroups.csv")  # functional groups file
 aeec_init = file.path(aeec_root_path, "..", "AEECF_200y_ini.nc") # initial conditions for groups, etc.
-aeec_prm_run = file.path(aeec_root_path, "AEEC_run.prm") # model run parameters 
+aeec_prm_run = file.path(aeec_root_path, "..", "AEEC_run.prm") # model run parameters 
 
 # Atlantis output files
 aeec_outdir = file.path(sim_results_root_path, paste0("sim", sim_id)) # TODO match sh script
