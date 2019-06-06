@@ -12,10 +12,9 @@ library(dplyr)
 # BHalpha - from stock assesment
 # KDENR - calcualted from current calibrated value
 
-# number of levels hard-coded to be 4
+# number of levels hard-coded to be 8
 
-param_mult_factors = c(0.5, 0.75, 1.25, 2)
-mortality_mult_factors = param_mult_factors[2:3] # use inner +/-25% for mortality
+param_mult_factors = seq(from = -0.5, to = 1, len = 8) + 1
 mum_func_of_C_mult_factor = 3
 
 # get age groups, ceph groups, and pool groups and need to know primary producers too
@@ -25,7 +24,7 @@ create_param_bounds = function(func_groups_data, param_values, fitted_C_values, 
 {
   codes = get_group_codes(func_groups_data)
   
-  param_bounds_df = data.frame(levels = 1:4)
+  param_bounds_df = data.frame(levels = 1:length(param_mult_factors))
 
   for (code in codes)
   {
@@ -105,56 +104,45 @@ create_bounds_mL_mQ = function(code, group_type, group_is_primary_producer, para
   {
     bounds = NULL
     m_values = filter(param_values, Param == m_param, Code == code)
-
-    if (group_type == GROUP_TYPE_POOL)
-    {
-      if ( !group_is_primary_producer | (group_is_primary_producer & m_param == "mL") ) # no quadratic mortality for primary producers
+    
+    # now filter those out that have value = 0, we don't include these params in the SA
+    #  only juv or adult mortality is non-0 could be possible
+    if (!all(m_values %>% pull(Value) == 0)) 
+    { 
+      if (group_type == GROUP_TYPE_POOL)
       {
-        values =  calculate_mortality_bounds(m_values %>% pull(Value), 
-                                             m_values %>% pull(COL_MORTALITY_QUANTILE_LOW),
-                                             m_values %>% pull(COL_MORTALITY_QUANTILE_HIGH))
-        bounds = data.frame(x = values)
-        names(bounds) = paste(m_param, code, PARAM_SUFFIX_SINGLE, sep = "_")
+        if ( !group_is_primary_producer | (group_is_primary_producer & m_param == "mL") ) # no quadratic mortality for primary producers
+        {
+          values =  param_mult_factors * m_values %>% pull(Value)
+          bounds = data.frame(x = values)
+          names(bounds) = paste(m_param, code, PARAM_SUFFIX_SINGLE, sep = "_")
+        }
+      } 
+      else if (group_type %in% c(GROUP_TYPE_JUV_ADULT, GROUP_TYPE_AGE))
+      {
+        values_j =  param_mult_factors * filter(m_values, Age == 1) %>% pull(Value)
+        values_a =  param_mult_factors * filter(m_values, Age == 2) %>% pull(Value)
+        bounds = data.frame(x1 = values_j, x2 = values_a)
+        names(bounds) = paste(m_param, code, c(PARAM_SUFFIX_JUVENILE, PARAM_SUFFIX_ADULT), sep = "_")
+      } else
+      {
+        stop(paste("Unknown group type", group_type))
       }
-    } 
-    else if (group_type %in% c(GROUP_TYPE_JUV_ADULT, GROUP_TYPE_AGE))
-    {
-      values_j =  calculate_mortality_bounds(filter(m_values, Age == 1) %>% pull(Value),
-                                             filter(m_values, Age == 1) %>% pull(COL_MORTALITY_QUANTILE_LOW),
-                                             filter(m_values, Age == 1) %>% pull(COL_MORTALITY_QUANTILE_HIGH))
-      values_a =  calculate_mortality_bounds(filter(m_values, Age == 2) %>% pull(Value),
-                                             filter(m_values, Age == 2) %>% pull(COL_MORTALITY_QUANTILE_LOW),
-                                             filter(m_values, Age == 2) %>% pull(COL_MORTALITY_QUANTILE_HIGH))
-      bounds = data.frame(x1 = values_j, x2 = values_a)
-      names(bounds) = paste(m_param, code, c(PARAM_SUFFIX_JUVENILE, PARAM_SUFFIX_ADULT), sep = "_")
-    } else
-    {
-      stop(paste("Unknown group type", group_type))
+      result = bind_cols(result, bounds)
     }
-    result = bind_cols(result, bounds)
   }
   return(result)
 } 
 
-calculate_mortality_bounds = function(calib_param_value, quan_low, quan_high)
-{
-  mortality_bounds = c(0, 0) # first 2 values are always 0
-
-  if (calib_param_value == 0)
-  {
-    # use model percentiles
-    mortality_bounds = c(mortality_bounds, quan_low, quan_high)
-  }
-  else
-  {
-    # adjust existing calibrated parameter
-    mortality_bounds = c(mortality_bounds, mortality_mult_factors * calib_param_value)
-  }
-  return(mortality_bounds)
-}
 
 create_bounds_reproduction = function(code, group_type, param_values, BHalpha_mult_factors)
 {
+  interpolate_mult_factor = function(bounds_lower_upper)
+  {
+    mult_factor = seq(from = bounds_lower_upper[1], to = bounds_lower_upper[2], 
+                      length.out = length(param_mult_factors))
+    return(mult_factor)
+  }
   bounds = NULL
   if (group_type == GROUP_TYPE_AGE)
   {
@@ -162,13 +150,16 @@ create_bounds_reproduction = function(code, group_type, param_values, BHalpha_mu
     
     if (flagrecruit == 3) # Beverton-Holt
     {
-      cols = c(COL_BHALPHA_LEVEL_1, COL_BHALPHA_LEVEL_2, COL_BHALPHA_LEVEL_3, COL_BHALPHA_LEVEL_4)
-      default_mult_factor = unlist(filter(BHalpha_mult_factors, Code == "ALL") %>% select(cols))
+      # COL_BHALPHA_LEVEL_1, COL_BHALPHA_LEVEL_2, COL_BHALPHA_LEVEL_3, COL_BHALPHA_LEVEL_4
+      # which represent 5, 25, 75, 95 percentile, therefore we now use levels 1 and 4
+      # and interpolate the others evenly between it
+      cols = c(COL_BHALPHA_LEVEL_1, COL_BHALPHA_LEVEL_4)
+      default_mult_factor = interpolate_mult_factor( unlist(filter(BHalpha_mult_factors, Code == "ALL") %>% select(cols)) )
       mult_factor = NULL
       
       if (code %in% BHalpha_mult_factors)
       {
-        mult_factor = unlist(filter(BHalpha_mult_factors, Code == code) %>% select(cols))
+        mult_factor = interpolate_mult_factor( unlist(filter(BHalpha_mult_factors, Code == code) %>% select(cols)) )
       } else
       {
         mult_factor = default_mult_factor

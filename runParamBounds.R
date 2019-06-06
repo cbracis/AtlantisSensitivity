@@ -15,6 +15,7 @@ write.csv(bounds, file = PARAM_BOUNDS_FILE, quote = FALSE, row.names = FALSE)
 # how many parameters in the final analysis, everything but mum, which is there for convenience later
 # - 1 don't count levels column
 # + 1 but need to add back in mum for primary producers that don't have C!! (only phytoplankton, seagrass is turned off)
-length(names(bounds)) - length(grep("mum", names(bounds))) - 1 + 1
+# and - 1 because juv/adult C are moved together
+length(names(bounds)) - length(grep("mum", names(bounds))) - 1 + 1 - 1
 
 

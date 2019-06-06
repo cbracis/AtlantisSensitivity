@@ -57,10 +57,12 @@ BHALPHA_MULT_FACTORS_FILE = "files/BHalpha_mult_factors.csv"
 # directories
 OUTPUT_DIR = "output"
 
+# Shell script file name
+SHELL_SCRIPT_BASE_NAME = "runAtlantis"
+
 # names of columns
-# the low and high values (level 3-4) to use from the parameter comparison for mortality when param is 0
-COL_MORTALITY_QUANTILE_LOW = "quantile25"
-COL_MORTALITY_QUANTILE_HIGH = "quantile75"
+# for BHAlpha, this is from the 4-level design (percentiles 5, 25, 75, 95), now we just use
+# levels 1 and 4 and fill in between them
 COL_BHALPHA_LEVEL_1 = "level1"
 COL_BHALPHA_LEVEL_2 = "level2"
 COL_BHALPHA_LEVEL_3 = "level3"
