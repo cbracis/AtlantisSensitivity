@@ -1,18 +1,21 @@
 #!/usr/bin/Rscript
 # File to call from datarmor scripts after simulation runs to process output and copy it
 
-suppressMessages(library(docopt))
-suppressMessages(require(atlantistools)) # note requires updated version of package from github (not CRAN version)
-suppressMessages(require(dplyr))
+# subdirectory of datahome where R packages are installed
+.libPaths( c(.libPaths(), "~/r-package/library") )
 
-source("processOutput.R") # support functions
+library(docopt)
+require(atlantistools) # note requires updated version of package from cbracis github (not CRAN version)
+require(dplyr)
+
+source("~/processOutput.R") # support functions
 
 #--- command line arguments -------------------------------
 doc = "Usage: runProcessOutput.R [-h] [--atl ATLANTISDIR] [--out OUTDIR] (SIMID)
 
 Options:
--a --atl ATLANTISDIR  Atlantis root directory [default: ~/simu]
--o --out OUTDIR       output directory root [default: /home1/scratch/rgirardi/output]
+-a --atl ATLANTISDIR  Atlantis root directory [default: ~/atlantis-parameter-files/AEEC_F_UNIXv6290/simu]
+-o --out OUTDIR       output directory root [default: /home1/scratch/cbracis/output]
 -h --help             show this help text"
 
 opt = docopt(doc)
@@ -23,36 +26,57 @@ aeec_root_path = opt$atl        # Atlantis root directory
 sim_results_root_path = opt$out # root output directory, parent of simulation output directory
 sim_id = opt$SIMID              # simulation id
 
+
 #--- files and directories --------------------------------
 
 # Atlantis run files
 aeec_prm_biol = file.path(aeec_root_path, paste0("AEEC_biol", sim_id, ".prm"))
 
 aeec_bgm = file.path( aeec_root_path, "..", "poly_atlantisEC35_projETRS89_LAEA_snapped0p002.bgm")
-aeec_fgs = file.path(aeec_root_path,"..", "SETasGroups.csv")  # functional groups file
-aeec_init = file.path(aeec_root_path, "..", "AEECF_200y_ini.nc") # initial conditions for groups, etc.
-aeec_prm_run = file.path(aeec_root_path, "..", "AEEC_run.prm") # model run parameters 
+aeec_fgs = file.path(aeec_root_path, "SETasGroups.csv")  # functional groups file
+aeec_init = file.path(aeec_root_path,  "AEEC35_final_ini.nc") # initial conditions for groups, etc.
+aeec_prm_run = file.path(aeec_root_path,  "AEEC_run.prm") # model run parameters 
 
 # Atlantis output files
 aeec_outdir = file.path(sim_results_root_path, paste0("sim", sim_id)) # TODO match sh script
-aeec_output_nc = file.path(aeec_outdir, paste0("AEEC_Fv6376_sim", sim_id, ".nc")) # TODO match sh script
+aeec_output_nc = file.path(aeec_outdir, paste0("AEEC_SA_sim", sim_id, ".nc")) # TODO match sh script
 
 # other files/dirs for simulation results
-metrics_file = file.path(aeec_outdir, paste0("sim_", sim_id, ".rdata"))
-# TODO other csv file for 5 yr / 10 yr biomass
+metrics_file = file.path(aeec_outdir, paste0("AEEC_SA_sim", sim_id, ".rdata"))
+five_year_age_file = file.path(aeec_outdir, paste0("AEEC_SA_sim", sim_id, "_five_year_avg_age.csv"))
+five_year_nonage_file = file.path(aeec_outdir, paste0("AEEC_SA_sim", sim_id, "_five_year_avg_nonage.csv"))
+ten_year_age_file = file.path(aeec_outdir, paste0("AEEC_SA_sim", sim_id, "_ten_year_avg_age.csv"))
+ten_year_nonage_file = file.path(aeec_outdir, paste0("AEEC_SA_sim", sim_id, "_ten_year_avg_nonage.csv"))
 
 #--- process output ------------------------------------
 
 # TODO: find sediment layer automatically?
 # TODO: CEP not handled correctly
-# TODO need to filter depending on how ofter we write data?
-metrics = calcualte_metrics(output = aeec_output_nc, biol_prm = aeec_prm_biol,
-                            fgs = aeec_fgs, init = aeec_init, run_prm = aeec_prm_run, 
-                            bgm = aeec_bgm, sediment_layer = 3)
-save(metrics, file = metrics_file)
+if (verify_atlantis_output(aeec_output_nc, aeec_prm_run))
+{
+  metrics = calcualte_metrics(output = aeec_output_nc, biol_prm = aeec_prm_biol,
+                              fgs = aeec_fgs, init = aeec_init, run_prm = aeec_prm_run, 
+                              bgm = aeec_bgm, sediment_layer = 3)
+  save(metrics, file = metrics_file)
+  # no filtering since we write data 5x per year
+  
+  # save 5 yr and 10 yr summary
+  five_year_avg = calculate_5_years(metrics, aeec_fgs)
+  ten_year_avg = calculate_10_years(metrics, aeec_fgs)
+  
+  # try to release some memory
+  rm(metrics)
+  
+  write.csv(five_year_avg$nonage, file = five_year_nonage_file, quote = FALSE, row.names = FALSE)
+  write.csv(five_year_avg$age, file = five_year_age_file, quote = FALSE, row.names = FALSE)
+  write.csv(ten_year_avg$nonage, file = ten_year_nonage_file, quote = FALSE, row.names = FALSE)
+  write.csv(ten_year_avg$age, file = ten_year_age_file, quote = FALSE, row.names = FALSE)
 
-# TODO: save 5 yr and 10 yr summary
+} else
+{
+  file.create(file.path(aeec_outdir, "atlantis_output_incorrect_length.txt"))
+}
 
-
-
+# release
+gc()
 

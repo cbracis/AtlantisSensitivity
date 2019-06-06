@@ -2,7 +2,7 @@
 require(atlantistools) # note requires updated version of package from github (not CRAN version)
 require(dplyr)
 
-source("getGroups.R") # TODO move here and rename file
+source("~/getGroups.R") # TODO move here and rename file
 
 # gets the simulation id by looking in specified file (assumed to be copied as part of simulation initilization)
 # file should just contain simulation id number and nothing else
@@ -101,17 +101,20 @@ calculate_length_at_age = function(ab_params, reserveN, structN, bio_conv)
 }
 
 # data is data.frame with columns species, time, and atoutput, and optionally agecl
+# interval is open on left (from) and closed on right (to)
 calculate_avg_timespan = function(data, from, to)
 {
   grouping = if ("agecl" %in% names(data)) { c("species", "agecl") } else { "species"}
  
    species_mean = data %>% 
-    filter(time >= from & time <= to) %>%
+    filter(time > from & time <= to) %>%
     group_by(.dots = grouping) %>% 
     summarise(avg = mean(atoutput))
   return(species_mean)
 }
 
+# calculates averages for each metric, works on output of calculate_metrics
+# intervals are as in calculate_avg_timespan, open on lower bound and closed on upper
 calculate_avg_timespan_all = function(metric_list, from, to, fgs = NULL)
 {
   metric_names = names(metric_list)
@@ -120,7 +123,7 @@ calculate_avg_timespan_all = function(metric_list, from, to, fgs = NULL)
   results = NULL
   
   avgs_nonage = lapply(metric_names_nonage, function(x) calculate_avg_timespan(metric_list[[x]], from, to) %>% 
-                                                        rename(!!x := avg)) # the !! unquotes the x to use the varaible as the name and not x
+                                                        rename(!!x := avg)) # the !! unquotes the x to use the varaible as the name and not x, see help(":=")
   results$nonage = Reduce(function(x, y) full_join(x, y, by = "species"), avgs_nonage) 
 
   avgs_age = lapply(metric_names_age, function(x) calculate_avg_timespan(metric_list[[x]], from, to) %>% 
@@ -130,8 +133,95 @@ calculate_avg_timespan_all = function(metric_list, from, to, fgs = NULL)
   if (!is.null(fgs))
   {
     results = lapply(results,
-                     function(x) cbind(x, Code = get_codes_from_long_names(x$species, fgs)) )
+                     function(x) cbind(x, code = get_codes_from_long_names(x$species, fgs)) )
   }
   
   return(results)
+}
+
+# calculates averages for each metric, *across a number of time intervals* 
+# works on output of calculate_metrics
+# be careful about how to specify from and to, remember intervals are open on lower bound and closed on upper
+# thus from = 0 would include the first report interval but not the initial conditions 0
+calculate_avg_timespan_intervals = function(metric_list, start, end, interval, fgs = NULL)
+{
+  n_intervals = floor((end - start) / interval)
+  
+  result_list = NULL
+  interval_names = NULL
+  from = start
+  for (i in 1:n_intervals)
+  {
+    # not sure if this is right, think throguh it, yes just need to add note to explain how to pick values
+    result_list[[i]] = calculate_avg_timespan_all(metric_list, from = from, to = from + interval)
+    interval_names[i] = paste0(".", from, "-", from + interval)
+    
+    from = from + interval
+  }
+  
+  # now we need to consolidate
+  # cbind the columns with the year range appended, at the end add back the species, and if nec agecl and code
+  results = NULL
+  
+  for (i in 1:n_intervals)
+  {
+    # nonage 
+    old_names = setdiff(names(result_list[[i]]$nonage), c("species"))
+    new_names = paste0(old_names, interval_names[i])
+    results$nonage = bind_cols( results$nonage, 
+                                result_list[[i]]$nonage %>% 
+                                  rename( !!!syms(setNames(old_names, new_names)) ) %>%
+                                  select(-species) )
+    
+    # age
+    old_names = setdiff(names(result_list[[i]]$age), c("species", "agecl"))
+    new_names = paste0(old_names, interval_names[i])
+    results$age = bind_cols( results$age, 
+                                result_list[[i]]$age %>% 
+                                  rename( !!!syms(setNames(old_names, new_names)) ) %>%
+                                  select(-c("species", "agecl")) )
+    
+  }
+  
+  # add back species and code columns (assume first list item)
+  results$nonage$species = result_list[[1]]$nonage$species
+  results$age$species = result_list[[1]]$age$species
+  if (!is.null(fgs))
+  {
+    results$nonage$code = get_codes_from_long_names(results$nonage$species, fgs)
+    results$age$code = get_codes_from_long_names(results$age$species, fgs)
+  }
+  return(results)
+}
+
+# calculates sets of 5 year avgs for 100 year simulation
+calculate_5_years = function(metric_list, fgs = NULL)
+{
+  return(calculate_avg_timespan_intervals(metric_list, 0, 100, 5, fgs))
+}
+
+# calculates sets of 10 year avgs for 100 year simulation
+calculate_10_years = function(metric_list, fgs = NULL)
+{
+  return(calculate_avg_timespan_intervals(metric_list, 0, 100, 10, fgs))
+}
+
+# verify atlantis output, that there is enough and it didn't crash
+verify_atlantis_output = function(output_nc, run_prm)
+{
+  # note! we assume these are in units of days
+  # and ignore any other run prm settings that could also change output length
+  stop_days = extract_prm(prm_biol = run_prm, variables = "tstop")
+  start_days = extract_prm(prm_biol = run_prm, variables = "toutstart")
+  interval = extract_prm(prm_biol = run_prm, variables = "toutinc")
+  
+  expected_length = length(seq(from = start_days, to = stop_days, by = interval))
+  
+  # use RNetCDF since it's already there for atlantis tools
+  output = RNetCDF::open.nc(con = aeec_output_nc)
+  on.exit( RNetCDF::close.nc(output) )
+  n_timesteps = RNetCDF::dim.inq.nc(output, 0)$length
+  
+  result = (expected_length == n_timesteps)
+  return(result)
 }
