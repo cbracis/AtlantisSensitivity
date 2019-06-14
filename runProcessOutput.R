@@ -74,7 +74,7 @@ if (verify_atlantis_output(aeec_output_nc, aeec_prm_run))
 
 } else
 {
-  file.create(file.path(aeec_outdir, "atlantis_output_incorrect_length.txt"))
+  file.create(file.path(aeec_outdir, paste0("atlantis_output_incorrect_length_sim", sim_id, ".txt")))
 }
 
 # release
