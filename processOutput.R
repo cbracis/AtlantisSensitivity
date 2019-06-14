@@ -4,6 +4,8 @@ require(dplyr)
 
 source("~/getGroups.R") # TODO move here and rename file
 
+NA_NONAGE = -99999
+
 # gets the simulation id by looking in specified file (assumed to be copied as part of simulation initilization)
 # file should just contain simulation id number and nothing else
 get_sim_id = function(sim_id_file)
@@ -105,6 +107,11 @@ calculate_length_at_age = function(ab_params, reserveN, structN, bio_conv)
 calculate_avg_timespan = function(data, from, to)
 {
   grouping = if ("agecl" %in% names(data)) { c("species", "agecl") } else { "species"}
+  
+  # TODO !!! the problem is that when species start going extinct they just stop having rows in data,
+  # this means the avg in the timespan they go extinct is inflated since it's missing 0's
+  # and the avg is missing completely for time spans when they are 0 the whole time
+  # this really needs to be fixed in calculate_metrics
  
    species_mean = data %>% 
     filter(time > from & time <= to) %>%
@@ -122,6 +129,7 @@ calculate_avg_timespan_all = function(metric_list, from, to, fgs = NULL)
   metric_names_nonage = setdiff(metric_names, metric_names_age)
   results = NULL
   
+  
   avgs_nonage = lapply(metric_names_nonage, function(x) calculate_avg_timespan(metric_list[[x]], from, to) %>% 
                                                         rename(!!x := avg)) # the !! unquotes the x to use the varaible as the name and not x, see help(":=")
   results$nonage = Reduce(function(x, y) full_join(x, y, by = "species"), avgs_nonage) 
@@ -129,6 +137,11 @@ calculate_avg_timespan_all = function(metric_list, from, to, fgs = NULL)
   avgs_age = lapply(metric_names_age, function(x) calculate_avg_timespan(metric_list[[x]], from, to) %>% 
                                                   rename(!!x := avg)) # the !! unquotes the x to use the varaible as the name and not x
   results$age = Reduce(function(x, y) full_join(x, y, by = c("species", "agecl")), avgs_age) 
+  
+  # TODO ! this is a total hack, the only things that will be NA here are nonage groups that have
+  # a biomass but non nums, replace this with a place holder NA to be identified later
+  # groups that are extinct in this timespan will simply be missing per the problem with calculate_metrics
+  results$nonage = results$nonage %>% mutate_all(funs(replace(., which(is.na(.)), NA_NONAGE))) 
   
   if (!is.null(fgs))
   {
@@ -162,30 +175,49 @@ calculate_avg_timespan_intervals = function(metric_list, start, end, interval, f
   # now we need to consolidate
   # cbind the columns with the year range appended, at the end add back the species, and if nec agecl and code
   results = NULL
+  result_nonage = NULL
+  result_age = NULL
   
   for (i in 1:n_intervals)
   {
+    # some metric_list start missing certain species or just certain age classes
+    # going extinct?? need to verify with nc file
+    # in the meantime, just rename cols in loop, then use full_join instead of bind_cols
+    # so that missing rows will become NA instead, these probable really need to be 0!!
+    
     # nonage 
     old_names = setdiff(names(result_list[[i]]$nonage), c("species"))
     new_names = paste0(old_names, interval_names[i])
-    results$nonage = bind_cols( results$nonage, 
-                                result_list[[i]]$nonage %>% 
-                                  rename( !!!syms(setNames(old_names, new_names)) ) %>%
-                                  select(-species) )
+    # results$nonage = bind_cols( results$nonage, 
+    #                             result_list[[i]]$nonage %>% 
+    #                               rename( !!!syms(setNames(old_names, new_names)) ) %>%
+    #                               select(-species) )
+    result_nonage[[i]] = rename(result_list[[i]]$nonage, !!!syms(setNames(old_names, new_names)) )
     
     # age
     old_names = setdiff(names(result_list[[i]]$age), c("species", "agecl"))
     new_names = paste0(old_names, interval_names[i])
-    results$age = bind_cols( results$age, 
-                                result_list[[i]]$age %>% 
-                                  rename( !!!syms(setNames(old_names, new_names)) ) %>%
-                                  select(-c("species", "agecl")) )
-    
+    # results$age = bind_cols( results$age, 
+    #                          result_list[[i]]$age %>% 
+    #                            rename( !!!syms(setNames(old_names, new_names)) ) %>%
+    #                            select(-c("species", "agecl")) )
+    result_age[[i]] = rename(result_list[[i]]$age, !!!syms(setNames(old_names, new_names)) )
   }
   
+  results$nonage = Reduce(function(x, y) full_join(x, y, by = "species"), result_nonage) 
+  results$age = Reduce(function(x, y) full_join(x, y, by = c("species", "agecl")), result_age) 
+  
+  # TODO !! total hack !!
+  # replace NA with 0 for species that have gone extinct, see problem with calculate_metrics
+  # then change placeholder NA back to NA
+  results$age = results$age %>% mutate_all(funs(replace(., which(is.na(.)), 0))) 
+  results$nonage = results$nonage %>% mutate_all(funs(replace(., which(is.na(.)), 0))) 
+  results$nonage = results$nonage %>% mutate_all(funs(replace(., which(. == NA_NONAGE), NA))) 
+  
+  
   # add back species and code columns (assume first list item)
-  results$nonage$species = result_list[[1]]$nonage$species
-  results$age$species = result_list[[1]]$age$species
+  #results$nonage$species = result_list[[1]]$nonage$species
+  #results$age$species = result_list[[1]]$age$species
   if (!is.null(fgs))
   {
     results$nonage$code = get_codes_from_long_names(results$nonage$species, fgs)
