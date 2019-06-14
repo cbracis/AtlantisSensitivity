@@ -74,15 +74,15 @@ param_names = c( "C_SB_age", "mL_SB_juv", "mL_SB_adult", "KDENR_SB_single",
                  "C_ZOG_single", "mL_ZOG_single", "mQ_ZOG_single", 
                  "mum_PP_single", "mL_PP_single" )
 length(param_names)
+levels = 8
 
 morris_full = morris(model = NULL, factors = param_names, r = 50, 
-                     design = list(type = "oat", levels = 4, grid.jump = 2),
-                     binf = rep(1, length(param_names)), bsup = rep(4, length(param_names)))
+                     design = list(type = "oat", levels = levels, grid.jump = levels / 2),
+                     binf = rep(1, length(param_names)), bsup = rep(levels, length(param_names)))
 design_full = cbind(simID = ( 1:nrow(morris_full$X) ) + 10000, morris_full$X)
 write.csv(design_full, file = "files/design_matrix_full.csv", row.names = FALSE, quote = FALSE)
 dim(design_full)
 
-levels = 8
 morris_opt = morris(model = NULL, factors = param_names, r = c(50, 200), 
                     design = list(type = "oat", levels = levels, grid.jump = levels / 2),
                     binf = rep(1, length(param_names)), bsup = rep(levels, length(param_names)))
