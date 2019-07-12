@@ -15,4 +15,14 @@ create_sim_param_files(design_matrix, param_bounds, BASE_BIOL_PRM_FILE, OUTPUT_D
 
 #create_sim_param_files(design_matrix, param_bounds, BASE_BIOL_PRM_FILE, OUTPUT_DIR, start = 7473)
 
+##################################################################################################
+### next version of SA without primary production / top predators
+##  rempve CET, SB, SXX, PP, ZOO, ZOC, ZOG
+##################################################################################################
+
+design_matrix2 = read.csv(DESIGN_MATRIX_FILE_TWO, stringsAsFactors = FALSE)
+# same param_bounds as above
+
+create_sim_param_files(design_matrix2, param_bounds, BASE_BIOL_PRM_FILE, OUTPUT_DIR)
+
 
