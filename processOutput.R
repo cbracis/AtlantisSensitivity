@@ -1,18 +1,73 @@
 # supporting libraries
 require(atlantistools) # note requires updated version of package from github (not CRAN version)
 require(dplyr)
+require(tidyr)
 
 source("~/getGroups.R") # TODO move here and rename file
 
-NA_NONAGE = -99999
-
-# gets the simulation id by looking in specified file (assumed to be copied as part of simulation initilization)
-# file should just contain simulation id number and nothing else
-get_sim_id = function(sim_id_file)
+process_atlantis_results = function(aeec_root_path, aeec_outdir, sim_id)
 {
-  id = as.numeric(readLines(sim_id_file))
-}
+  #--- files and directories --------------------------------
+  
+  # Atlantis run files
+  aeec_prm_biol = file.path(aeec_root_path, paste0("AEEC_biol", sim_id, ".prm"))
+  
+  aeec_bgm = file.path( aeec_root_path, "..", "poly_atlantisEC35_projETRS89_LAEA_snapped0p002.bgm")
+  aeec_fgs = file.path(aeec_root_path, "SETasGroups.csv")  # functional groups file
+  aeec_init = file.path(aeec_root_path,  "AEEC35_final_ini.nc") # initial conditions for groups, etc.
+  aeec_prm_run = file.path(aeec_root_path,  "AEEC_run.prm") # model run parameters 
+  
+  # Atlantis output files
+  aeec_output_nc = file.path(aeec_outdir, paste0("AEEC_SA_sim", sim_id, ".nc")) # TODO match sh script
+  
+  # other files/dirs for simulation results
+  metrics_file = file.path(aeec_outdir, paste0("AEEC_SA_sim", sim_id, ".rdata"))
+  five_year_age_file = file.path(aeec_outdir, paste0("AEEC_SA_sim", sim_id, "_five_year_avg_age.csv"))
+  five_year_nonage_file = file.path(aeec_outdir, paste0("AEEC_SA_sim", sim_id, "_five_year_avg_nonage.csv"))
+  ten_year_age_file = file.path(aeec_outdir, paste0("AEEC_SA_sim", sim_id, "_ten_year_avg_age.csv"))
+  ten_year_nonage_file = file.path(aeec_outdir, paste0("AEEC_SA_sim", sim_id, "_ten_year_avg_nonage.csv"))
+  
+  #--- process output ------------------------------------
+  
+  # TODO: find sediment layer automatically?
+  # TODO: CEP not handled correctly
+  
+  metrics = calcualte_metrics(output = aeec_output_nc, biol_prm = aeec_prm_biol,
+                              fgs = aeec_fgs, init = aeec_init, run_prm = aeec_prm_run, 
+                              bgm = aeec_bgm, sediment_layer = 3)
+  # no filtering since we write data 5x per year
+  
+  sim_good = verify_atlantis_output(aeec_output_nc, aeec_prm_run)
+  if (!sim_good)
+  {
+    # atlantis crashed along the way
+    file.create(file.path(aeec_outdir, paste0("atlantis_output_incorrect_length_sim", sim_id, ".txt")))
+    
+    num_years = attr(sim_good, 'n_years')
+    print(num_years)
+    print(floor(num_years / 5) * 5)
+    print(floor(num_years / 10) * 10)
+    
+    five_year_avg = calculate_5_years(metrics, max_year = floor(num_years / 5) * 5, fgs = aeec_fgs)
+    ten_year_avg = calculate_10_years(metrics, max_year = floor(num_years / 10) * 10, fgs = aeec_fgs)
 
+  } else
+  {
+    # save 5 yr and 10 yr summary
+    five_year_avg = calculate_5_years(metrics, fgs = aeec_fgs)
+    ten_year_avg = calculate_10_years(metrics, fgs = aeec_fgs)
+    
+  }
+  
+  write.csv(five_year_avg$nonage, file = five_year_nonage_file, quote = FALSE, row.names = FALSE)
+  write.csv(five_year_avg$age, file = five_year_age_file, quote = FALSE, row.names = FALSE)
+  write.csv(ten_year_avg$nonage, file = ten_year_nonage_file, quote = FALSE, row.names = FALSE)
+  write.csv(ten_year_avg$age, file = ten_year_age_file, quote = FALSE, row.names = FALSE)
+  
+  save(metrics, file = metrics_file)
+
+}
+  
 # calculates a number of meterics (biomass, numbers, and biomass, numbers and length at age) for a simulation run
 # issue is that structN and resN have default values in boundary boxes and the sediment layer (not an issue for Nums)
 # includinging it affects results (esp when populations go extinct), so specify sedment layer to remove if necessary
@@ -65,11 +120,21 @@ calcualte_metrics = function(output, biol_prm, bgm, fgs, init, run_prm, sediment
   nums_age = agg_data(data = num_and_Ns[[1]], groups = c("species", "agecl", "time"), fun = sum)
   
   # Aggregate the rest of the dataframes by mean!
-  structn_age = agg_data(data = num_and_Ns[[2]],  groups = c("species", "time", "agecl"), fun = mean)
-  resn_age    = agg_data(data = num_and_Ns[[3]],  groups = c("species", "time", "agecl"), fun = mean)
+  structn_age = agg_data(data = num_and_Ns[[2]],  groups = c("species", "agecl", "time"), fun = mean)
+  resn_age    = agg_data(data = num_and_Ns[[3]],  groups = c("species", "agecl", "time"), fun = mean)
   
   # lengthAtAge
   length_at_age = calculate_length_at_age(ab.df, structN = num_and_Ns[[2]], reserveN =  num_and_Ns[[3]], bio_conv = bio_conv)
+  
+  # because 0's are missing after load_nc, fill them back in or else extinctions are unrecognized and 
+  # data frame is not complete
+  biomass = complete(biomass, species, time, fill = list(atoutput = 0))
+  biomass_age = complete(biomass_age, species, agecl, time, fill = list(atoutput = 0))
+  nums = complete(nums, species, time, fill = list(atoutput = 0))
+  nums_age = complete(nums_age, species, agecl, time, fill = list(atoutput = 0))
+  structn_age = complete(structn_age, species, agecl, time, fill = list(atoutput = 0))
+  resn_age = complete(resn_age, species, agecl, time, fill = list(atoutput = 0))
+  length_at__age = complete(length_at_age, species, agecl, time, fill = list(atoutput = 0))
   
   result = list(
     "biomass"                = biomass,       
@@ -108,11 +173,6 @@ calculate_avg_timespan = function(data, from, to)
 {
   grouping = if ("agecl" %in% names(data)) { c("species", "agecl") } else { "species"}
   
-  # TODO !!! the problem is that when species start going extinct they just stop having rows in data,
-  # this means the avg in the timespan they go extinct is inflated since it's missing 0's
-  # and the avg is missing completely for time spans when they are 0 the whole time
-  # this really needs to be fixed in calculate_metrics
- 
    species_mean = data %>% 
     filter(time > from & time <= to) %>%
     group_by(.dots = grouping) %>% 
@@ -138,11 +198,7 @@ calculate_avg_timespan_all = function(metric_list, from, to, fgs = NULL)
                                                   rename(!!x := avg)) # the !! unquotes the x to use the varaible as the name and not x
   results$age = Reduce(function(x, y) full_join(x, y, by = c("species", "agecl")), avgs_age) 
   
-  # TODO ! this is a total hack, the only things that will be NA here are nonage groups that have
-  # a biomass but non nums, replace this with a place holder NA to be identified later
-  # groups that are extinct in this timespan will simply be missing per the problem with calculate_metrics
-  results$nonage = results$nonage %>% mutate_all(funs(replace(., which(is.na(.)), NA_NONAGE))) 
-  
+
   if (!is.null(fgs))
   {
     results = lapply(results,
@@ -180,44 +236,22 @@ calculate_avg_timespan_intervals = function(metric_list, start, end, interval, f
   
   for (i in 1:n_intervals)
   {
-    # some metric_list start missing certain species or just certain age classes
-    # going extinct?? need to verify with nc file
-    # in the meantime, just rename cols in loop, then use full_join instead of bind_cols
-    # so that missing rows will become NA instead, these probable really need to be 0!!
-    
     # nonage 
     old_names = setdiff(names(result_list[[i]]$nonage), c("species"))
     new_names = paste0(old_names, interval_names[i])
-    # results$nonage = bind_cols( results$nonage, 
-    #                             result_list[[i]]$nonage %>% 
-    #                               rename( !!!syms(setNames(old_names, new_names)) ) %>%
-    #                               select(-species) )
+    
     result_nonage[[i]] = rename(result_list[[i]]$nonage, !!!syms(setNames(old_names, new_names)) )
     
     # age
     old_names = setdiff(names(result_list[[i]]$age), c("species", "agecl"))
     new_names = paste0(old_names, interval_names[i])
-    # results$age = bind_cols( results$age, 
-    #                          result_list[[i]]$age %>% 
-    #                            rename( !!!syms(setNames(old_names, new_names)) ) %>%
-    #                            select(-c("species", "agecl")) )
+
     result_age[[i]] = rename(result_list[[i]]$age, !!!syms(setNames(old_names, new_names)) )
   }
   
   results$nonage = Reduce(function(x, y) full_join(x, y, by = "species"), result_nonage) 
   results$age = Reduce(function(x, y) full_join(x, y, by = c("species", "agecl")), result_age) 
   
-  # TODO !! total hack !!
-  # replace NA with 0 for species that have gone extinct, see problem with calculate_metrics
-  # then change placeholder NA back to NA
-  results$age = results$age %>% mutate_all(funs(replace(., which(is.na(.)), 0))) 
-  results$nonage = results$nonage %>% mutate_all(funs(replace(., which(is.na(.)), 0))) 
-  results$nonage = results$nonage %>% mutate_all(funs(replace(., which(. == NA_NONAGE), NA))) 
-  
-  
-  # add back species and code columns (assume first list item)
-  #results$nonage$species = result_list[[1]]$nonage$species
-  #results$age$species = result_list[[1]]$age$species
   if (!is.null(fgs))
   {
     results$nonage$code = get_codes_from_long_names(results$nonage$species, fgs)
@@ -227,18 +261,19 @@ calculate_avg_timespan_intervals = function(metric_list, start, end, interval, f
 }
 
 # calculates sets of 5 year avgs for 100 year simulation
-calculate_5_years = function(metric_list, fgs = NULL)
+calculate_5_years = function(metric_list, max_year = 100, fgs = NULL)
 {
-  return(calculate_avg_timespan_intervals(metric_list, 0, 100, 5, fgs))
+  return(calculate_avg_timespan_intervals(metric_list, 0, max_year, 5, fgs))
 }
 
 # calculates sets of 10 year avgs for 100 year simulation
-calculate_10_years = function(metric_list, fgs = NULL)
+calculate_10_years = function(metric_list, max_year = 100, fgs = NULL)
 {
-  return(calculate_avg_timespan_intervals(metric_list, 0, 100, 10, fgs))
+  return(calculate_avg_timespan_intervals(metric_list, 0, max_year, 10, fgs))
 }
 
 # verify atlantis output, that there is enough and it didn't crash
+# note attribute n_years may not be accurate if interval doesn't line up evenly with years
 verify_atlantis_output = function(output_nc, run_prm)
 {
   # note! we assume these are in units of days
@@ -248,12 +283,45 @@ verify_atlantis_output = function(output_nc, run_prm)
   interval = extract_prm(prm_biol = run_prm, variables = "toutinc")
   
   expected_length = length(seq(from = start_days, to = stop_days, by = interval))
-  
-  # use RNetCDF since it's already there for atlantis tools
-  output = RNetCDF::open.nc(con = aeec_output_nc)
-  on.exit( RNetCDF::close.nc(output) )
-  n_timesteps = RNetCDF::dim.inq.nc(output, 0)$length
+  n_timesteps = get_atlantis_output_length(output_nc)
   
   result = (expected_length == n_timesteps)
+  attr(result, 'n_timesteps') = n_timesteps
+  attr(result, 'n_years') = (n_timesteps + start_days - 1) / (365 / interval)
+  
   return(result)
+}
+
+# gets the year of the last recorded data, i.e. should be 100
+get_atlantis_output_length = function(output_nc, run_prm)
+{
+  # use RNetCDF since it's already there for atlantis tools
+  output = RNetCDF::open.nc(con = output_nc)
+  on.exit( RNetCDF::close.nc(output) )
+  n_timesteps = RNetCDF::dim.inq.nc(output, 0)$length
+  return(n_timesteps)
+}
+
+
+add_missing_rows = function(metrics_df, run_prm)
+{
+  # note! we assume these are in units of days
+  # and ignore any other run prm settings that could also change output length
+  stop_days = extract_prm(prm_biol = run_prm, variables = "tstop")
+  start_days = extract_prm(prm_biol = run_prm, variables = "toutstart")
+  interval = extract_prm(prm_biol = run_prm, variables = "toutinc")
+  
+  times = seq(from = start_days, to = stop_days, by = interval) / 365
+  
+  for (col in names(metrics_df))
+  {
+    if (grepl("age", col, fixed = TRUE))
+    {
+      metrics_df[[col]] = complete(metrics_df[[col]], species, agecl, time = times, fill = list(atoutput = 0))
+    } else
+    {
+      metrics_df[[col]] = complete(metrics_df[[col]], species, time = times, fill = list(atoutput = 0))
+    }
+  }
+  return(metrics_df)
 }

@@ -5,7 +5,7 @@ source("processOutput.R") # support functions
 
 aeec_root_path = "C:/Atlantis/AEEC_SA_test/simu"
 sim_results_root_path = "C:/Atlantis/AEEC_SA_test_output"
-sim_id = 10001
+sim_id = 10003
 
 # Atlantis run files
 aeec_prm_biol = file.path(aeec_root_path, paste0("AEEC_biol", sim_id, ".prm"))
@@ -16,7 +16,7 @@ aeec_init = file.path(aeec_root_path, "..", "AEECF_200y_ini.nc") # initial condi
 aeec_prm_run = file.path(aeec_root_path, "..", "AEEC_run.prm") # model run parameters 
 
 # Atlantis output files
-aeec_outdir = file.path(sim_results_root_path, paste0("sim", sim_id))
+aeec_outdir = file.path(sim_results_root_path, "output-done") #file.path(sim_results_root_path, paste0("sim", sim_id))
 aeec_output_nc = file.path(aeec_outdir, paste0("AEEC_SA_sim", sim_id, ".nc")) 
 aeec_migr = file.path(aeec_outdir, paste0("AEEC_SA_sim", sim_id, "Migration.txt"))
 aeec_biomass = file.path(aeec_outdir, paste0("AEEC_SA_sim", sim_id, "BiomIndx.txt")) 
@@ -47,9 +47,34 @@ plot((avg_compare$avg - avg_compare$biomass)/avg_compare$avg)
 # write lots of prm files
 # final test of script, look at atlantis tools needed, packages
 
-five_year_avg = calculate_5_years(metrics, aeec_fgs)
-ten_year_avg = calculate_10_years(metrics, aeec_fgs)
+five_year_avg = calculate_5_years(metrics, fgs = aeec_fgs)
+ten_year_avg = calculate_10_years(metrics, fgs = aeec_fgs)
 
+
+process_atlantis_results(aeec_root_path, aeec_outdir, sim_id)
+
+# for files on NAS 
+aeec_root_path = "Y:/SA_first_try/datahome/atlantis-parameter-files/AEEC_F_UNIXv6290/simu"
+aeec_outdir = "Y:/SA_first_try/output_done" 
+sim_id = 12113
+
+#  13126 13179 13197 13657 13679 13692 13718 13727 13764 13802 13850 13870 13993 14233
+for( sim_id in consolid_results$sim[bad_rows] )
+{
+  print(sim_id)
+  process_atlantis_results(aeec_root_path, aeec_outdir, sim_id)
+}
+
+sim_id = 13126
+
+for( sim_id in consolid_results$sim[bad_rows] )
+{
+  load(file.path(aeec_outdir, paste0("AEEC_SA_sim", sim_id, ".rdata")))
+  print(sim_id)
+  print(tail( table(metrics$biomass$time), n = 20))
+}
+
+get_atlantis_output_length(file.path(aeec_outdir, paste0("AEEC_SA_sim", sim_id, ".nc")))
 
 # some important points
 # nc files have explicit time (ie seconds since date) but when atlantistools reads them in, it 
