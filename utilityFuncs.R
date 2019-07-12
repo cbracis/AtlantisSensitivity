@@ -39,6 +39,7 @@ GROUP_TYPE_POOL = "pool"
 # important files
 # design matrix of senstivity analysis, simulation id and levels each param takes
 DESIGN_MATRIX_FILE = "files/design_matrix_opt.csv"
+DESIGN_MATRIX_FILE_TWO = "files/design_matrix_opt2.csv" # second SA
 # parameter bounds, values of each parameter for each level
 PARAM_BOUNDS_FILE = "files/param_bounds.csv"
 # Atlantis species groups file

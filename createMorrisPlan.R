@@ -91,3 +91,52 @@ write.csv(design_opt, file = "files/design_matrix_opt.csv", row.names = FALSE, q
 dim(design_opt)
 
 
+##################################################################################################
+### next version of SA without primary production / top predators
+##  rempve CET, SB, SXX, PP, ZOO, ZOC, ZOG
+##################################################################################################
+
+param_names2 = c( "C_COD_age", "BHalpha_COD_single", 
+                 "C_RAY_age", "mL_RAY_juv", "mL_RAY_adult", "BHalpha_RAY_single", 
+                 "C_SHK_age", "mL_SHK_juv", "mL_SHK_adult", "BHalpha_SHK_single", 
+                 "C_CEP_adult", 
+                 "C_WHG_age", "BHalpha_WHG_single", 
+                 "C_POL_age", "mL_POL_juv", "mL_POL_adult", "BHalpha_POL_single", 
+                 "C_LBT_age", "mL_LBT_juv", "mL_LBT_adult", "BHalpha_LBT_single", 
+                 "C_BSS_age", "BHalpha_BSS_single", 
+                 "C_SOL_age", "BHalpha_SOL_single", 
+                 "C_PLE_age", "BHalpha_PLE_single", 
+                 "C_DAB_age", "BHalpha_DAB_single", 
+                 "C_OFF_age", "BHalpha_OFF_single", 
+                 "C_MAC_age", "BHalpha_MAC_single", 
+                 "C_CLU_age", "mL_CLU_juv", "mL_CLU_adult", "mQ_CLU_juv", "mQ_CLU_adult", "BHalpha_CLU_single", 
+                 "C_SPA_age", "BHalpha_SPA_single", 
+                 "C_GUX_age", "BHalpha_GUX_single", 
+                 "C_MUL_age", "BHalpha_MUL_single", 
+                 "C_GAD_age", "BHalpha_GAD_single", 
+                 "C_SMD_age", "BHalpha_SMD_single", 
+                 "C_LBE_single", "mQ_LBE_single", 
+                 "C_CRA_single", "mQ_CRA_single", 
+                 "C_SHP_single", "mQ_SHP_single", 
+                 "C_WHE_single", "mQ_WHE_single", 
+                 "C_SUS_single", "mQ_SUS_single", 
+                 "C_DEP_single", "mQ_DEP_single", 
+                 "C_SCE_single", "mQ_SCE_single", 
+                 "C_BIV_single", "mQ_BIV_single", 
+                 "C_ECH_single", "mQ_ECH_single" )
+length(param_names2)
+levels = 8
+
+morris_full2 = morris(model = NULL, factors = param_names2, r = 50, 
+                     design = list(type = "oat", levels = levels, grid.jump = levels / 2),
+                     binf = rep(1, length(param_names2)), bsup = rep(levels, length(param_names2)))
+design_full2 = cbind(simID = ( 1:nrow(morris_full2$X) ) + 10000, morris_full2$X)
+write.csv(design_full2, file = "files/design_matrix_full2.csv", row.names = FALSE, quote = FALSE)
+dim(design_full2)
+
+morris_opt2 = morris(model = NULL, factors = param_names2, r = c(50, 200), 
+                    design = list(type = "oat", levels = levels, grid.jump = levels / 2),
+                    binf = rep(1, length(param_names2)), bsup = rep(levels, length(param_names2)))
+design_opt2 = cbind(simID = ( 1:nrow(morris_opt2$X) ) + 10000, morris_opt2$X)
+write.csv(design_opt2, file = "files/design_matrix_opt2.csv", row.names = FALSE, quote = FALSE)
+dim(design_opt2)
