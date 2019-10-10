@@ -7,330 +7,352 @@ library(sensitivity)
 source("consolidateSimulationOutput.R")
 source("getGroups.R")
 source("utilityFuncs.R")
+source("writeParams.R") # split_param
 
 source("plotOutput.R")
+
+#-----------------------------------------------------------------------------------
+# output files
+#-----------------------------------------------------------------------------------
+
+SA1_biomass_file = "C:/Atlantis/AEEC_SA_test_output/output-consolid/SA_first_try/biomass.90.100_41_traj.csv"
+SA1_stability_file = "C:/Atlantis/AEEC_SA_test_output/output-consolid/SA_first_try/stability_biomass_slope_in_range.csv"
+SA1_nums_file = "C:/Atlantis/AEEC_SA_test_output/output-consolid/SA_first_try/nums.90.100_41_traj.csv"
+
+SA2_biomass_file = "C:/Atlantis/AEEC_SA_test_output/output-consolid/SA_two_noPPP/biomass.90.100.csv"
+SA2_stability_file = "C:/Atlantis/AEEC_SA_test_output/output-consolid/SA_two_noPPP/stability_biomass_slope_in_range.csv"
+SA2_nums_file = "C:/Atlantis/AEEC_SA_test_output/output-consolid/SA_two_noPPP/nums.90.100.csv"
 
 #-----------------------------------------------------------------------------------
 # SA_first try
 #-----------------------------------------------------------------------------------
 
-consolid_results = read.csv("C:/Atlantis/AEEC_SA_test_output/output-consolid/SA_first_try/biomass.90.100_41_traj.csv")
-plotfolder = "plots/SA_first_try/biomass.90.100_traj_41"
-consolid_results_60 = read.csv("C:/Atlantis/AEEC_SA_test_output/output-consolid/SA_first_try/biomass.60.70_41_traj.csv")
-
-consolid_results = read.csv("C:/Atlantis/AEEC_SA_test_output/output-consolid/SA_first_try/biomass.60.70_50_traj.csv")
-plotfolder = "plots/SA_first_try/biomass.60.70_traj_50"
-
-consolid_results = read.csv("C:/Atlantis/AEEC_SA_test_output/output-consolid/SA_first_try/nums.90.100_41_traj.csv")
-plotfolder = "plots/SA_first_try/nums.90.100_traj_41"
-
-consolid_results = read.csv("C:/Atlantis/AEEC_SA_test_output/output-consolid/SA_first_try/nums.60.70_50_traj.csv")
-plotfolder = "plots/SA_first_try/nums.60.70_traj_50"
+consolid_results_biomass = read.csv(SA1_biomass_file)
+stability_slope_in_range = read.csv(SA1_stability_file)
+consolid_results_nums = read.csv(SA1_nums_file)
 
 design_matrix = read.csv(DESIGN_MATRIX_FILE, stringsAsFactors = FALSE)
+output_folder = "Y:/SA_first_try/output_done"
+
+plotfolder = "plots/SA_first_try/paper"
 
 #-----------------------------------------------------------------------------------
 # SA_two_noPPP
 #-----------------------------------------------------------------------------------
 
-consolid_results = read.csv("C:/Atlantis/AEEC_SA_test_output/output-consolid/SA_two_noPPP/biomass.90.100.csv")
-plotfolder = "plots/SA_two_noPPP/biomass.90.100_temp"
+consolid_results_biomass = read.csv(SA2_biomass_file)
+stability_slope_in_range = read.csv(SA2_stability_file)
+
+consolid_results_nums = read.csv(SA2_nums_file)
+consolid_results_nums = select(consolid_results_nums, -which(apply(consolid_results_nums, 2, function(x) all(is.na(x)))))
+
+#---
 
 design_matrix = read.csv(DESIGN_MATRIX_FILE_TWO, stringsAsFactors = FALSE)
+output_folder = "Y:/SA_two_noPPP/output_done"
+
+plotfolder = "plots/SA_two_noPPP/paper"
 
 #-----------------------------------------------------------------------------------
+#   for all cases
+# ----------------------------------------------
+
+group_info = read.csv(GROUP_INFO_FILE, stringsAsFactors = FALSE)
+param_info = read.csv(PARAM_INFO_FILE, stringsAsFactors = FALSE)
+
 
 if (!dir.exists(plotfolder)) dir.create(plotfolder, recursive = TRUE)
 
-#----------------special comparing which decades of sims---------------------
-png(filename = "plots/years90.100vs60.70.png", width = 1200, height = 1200, res = 250)
-par(mar = c(3, 3, 1, 1), mgp = c(2, 0.5, 0))
-plot(0, 0, asp = 1, type = "n", xlim = range(consolid_results_60 + 1e-10, na.rm = TRUE), 
-     ylim = range(consolid_results + 1e-10, na.rm = TRUE),
-     xlab = "years 60-70", ylab = "years 90-100", log = "xy")
-for(i in 1:nrow(consolid_results))
-  points(consolid_results_60[i,-1] + 1e-10, consolid_results[i,-1] + 1e-10, pch = 16, 
-         col = rainbow(40, alpha = 0.5), cex = 0.5) #
-abline(a = 0, b = 1, col = "black")
-segments(x0 = c(1e-10, 1), y0 = c(1, 1), x1 = c(1, 1), y1 = c(1, 1e-10))
-legend("topleft", pch = 16, col = rainbow(40), legend = colnames(consolid_results)[-1], 
-       bty = "n", ncol = 2, cex = 0.7)
-dev.off()
-
-# correlation between results at years 60-70 and years 90-100
-# correlation by group to account for different scales
-cbind(names(consolid_results), sapply(1:ncol(consolid_results), function(x) cor(consolid_results[,x], consolid_results_60[,x])) )
-
-#--------------------------------------------------------------------------------
-
-# TODO there are some NAs that should be 0, but revisit this with new processOutput
-#consolid_results = consolid_results %>% replace(., is.na(.), 0) #(list(name = ~ replace(., which(is.na(.)), 0))) 
-# TODO new problem is that entire rows are NA !!!
-# final update: all bad rows fixed :)
-sum(is.na(consolid_results))
-bad_rows = unique(which(is.na(consolid_results), arr.ind = TRUE)[,1])
-consolid_results$sim[bad_rows]
 
 
 # for now subselect design matrix for just some sims
-morris_out = get_morris_output(design_matrix, consolid_results)
+morris_out_biomass = get_morris_output(design_matrix, consolid_results_biomass)
+morris_out_nums = get_morris_output(design_matrix, consolid_results_nums)
 
-plot(morris_out)
-plot3d.morris(morris_out)
+mu_biomass = calculate_mu(morris_out_biomass$ee)
+mu.star_biomass = calculate_mu.star(morris_out_biomass$ee)
+sigma_biomass = calculate_sigma(morris_out_biomass$ee)
 
-mu = calculate_mu(morris_out$ee)
-mu.star = calculate_mu.star(morris_out$ee)
-sigma = calculate_sigma(morris_out$ee)
+mu_nums = calculate_mu(morris_out_nums$ee)
+mu.star_nums = calculate_mu.star(morris_out_nums$ee)
+sigma_nums = calculate_sigma(morris_out_nums$ee)
 
-# turn into data.frame, add column for split_param
-# make colors for C, mL, etc
-# make diff symbol for self params
-# and category?
-param_info = data.frame( t( sapply(row.names(mu.star), split_param, simplify = TRUE) ) )
+# remove mL_CLU_adult since all it's values are 0, was there since juvenile was
+p_remove = "mL_CLU_adult"
+mu_biomass = mu_biomass[-which(rownames(mu_biomass) == p_remove),]
+mu.star_biomass = mu.star_biomass[-which(rownames(mu.star_biomass) == p_remove),]
+sigma_biomass = sigma_biomass[-which(rownames(sigma_biomass) == p_remove),]
 
-age_codes = get_age_group_codes(FUNCTIONAL_GROUPS_FILE)
-
-param_info$colIdx = 0
-param_info$colIdx[param_info$name %in% c("C", "mum")] = 1
-param_info$colIdx[param_info$name %in% c("mL", "mQ")] = 2
-param_info$colIdx[param_info$name %in% c("BHalpha", "KDENR")] = 3
-param_info$invertIdx = 1
-param_info$invertIdx[param_info$group %in% age_codes] = 2
-param_info$longName = get_group_long_names(param_info$group, FUNCTIONAL_GROUPS_FILE)
-param_info$param_code = rownames(param_info)
-
-group_info = data.frame(code = colnames(mu.star), stringsAsFactors = FALSE)
-group_info$longName = get_group_long_names(group_info$code, FUNCTIONAL_GROUPS_FILE)
-group_info$invertIdx = 1
-group_info$invertIdx[group_info$code %in% age_codes] = 2
-
-
-#get init biomass, for now use first sim output
-load(file.path(output_folder, "AEEC_SA_sim10001.rdata"))
-# now have object metrics
-# NOTE!!!! changing Carrion DET from 0 to 1 to avoid divide by 0, so it won't be normalized
-biomass0 = metrics$biomass %>% filter(time == 0) %>% 
-  rename(biomass.init = atoutput) %>% 
-  select(-time) %>% 
-  mutate(biomass.init = ifelse(biomass.init == 0, 1, biomass.init))
-group_info = right_join(group_info, biomass0, by = c("longName" = "species"))
-
-# alternatively, add nums
-nums0 = metrics$nums %>% filter(time == 0) %>% 
-  rename(nums.init = atoutput) %>% 
-  select(-time)
-group_info = right_join(group_info, nums0, by = c("longName" = "species"))
-
-# note that the merge can re-order the rows! need to be careful with the heat map plotting
-group_info = group_info[match(colnames(mu.star), group_info$code),]
-
-
+mu_nums = mu_nums[-which(rownames(mu_nums) == p_remove),]
+mu.star_nums = mu.star_nums[-which(rownames(mu.star_nums) == p_remove),]
+sigma_nums = sigma_nums[-which(rownames(sigma_nums) == p_remove),]
 
 # normalized versions
 
-mu_norm = normalize_effects_by_max(mu)
-mu.star_norm = normalize_effects_by_max(mu.star)
-sigma_norm = normalize_effects_by_max(sigma)
+mu_norm_biomass = normalize_effects_by_max(mu_biomass)
+mu.star_norm_biomass = normalize_effects_by_max(mu.star_biomass)
+sigma_norm_biomass = normalize_effects_by_max(sigma_biomass)
 
-
-# for biomass, restart with results, reuse same morris_full
-consolid_results_norm = normalize_results_by_init(consolid_results, 
-                                                  group_info %>% select(code, biomass.init) %>% rename(val = biomass.init))
-# or for nums
-consolid_results_norm = normalize_results_by_init(consolid_results, 
-                                                  group_info %>% select(code, nums.init) %>% rename(val = nums.init))
-
-
-morris_out_norm = get_morris_output(design_matrix, consolid_results_norm)
-
-mu_norm_init = calculate_mu(morris_out_norm$ee)
-mu.star_norm_init = calculate_mu.star(morris_out_norm$ee)
-sigma_norm_init = calculate_sigma(morris_out_norm$ee)
+mu_norm_nums = normalize_effects_by_max(mu_nums)
+mu.star_norm_nums = normalize_effects_by_max(mu.star_nums)
+sigma_norm_nums = normalize_effects_by_max(sigma_nums)
 
 
 # loook at important params by normalized effect size
-tot_effect_norm = data.frame(param = row.names(mu.star_norm), 
-                             totalMuStar = rowSums(mu.star_norm),
-                             totalSigma = rowSums(sigma_norm))
-#or by percent change (normalized by initial biomass)
-tot_effect_norm_init = data.frame(param = row.names(mu.star_norm_init), 
-                                  totalMuStar = rowSums(mu.star_norm_init),
-                                  totalSigma = rowSums(sigma_norm_init))
+tot_effect_norm_biomass = data.frame(param = row.names(mu.star_norm_biomass), 
+                             totalMuStar = rowSums(mu.star_norm_biomass),
+                             totalSigma = rowSums(sigma_norm_biomass))
 
-tot_effect_norm[order(tot_effect_norm$totalMuStar, decreasing = TRUE),]
-tot_effect_norm_init[order(tot_effect_norm_init$totalMuStar, decreasing = TRUE),]
+tot_effect_norm_biomass[order(tot_effect_norm_biomass$totalMuStar, decreasing = TRUE),]
 
-# check params in same order
-all(order(tot_effect_norm$param), order(tot_effect_norm_init$param))
-# use nnegative to get rank from high to low
-tot_effect_ranks = data.frame( param = tot_effect_norm$param,
-                               norm_mu.star = rank(-tot_effect_norm$totalMuStar),
-                               norm_sigma = rank(-tot_effect_norm$totalSigma),
-                               init_mu.star = rank(-tot_effect_norm_init$totalMuStar),
-                               init_sigma = rank(-tot_effect_norm_init$totalSigma) )
-tot_effect_ranks[order(tot_effect_ranks$norm_mu.star),]
+tot_effect_norm_nums = data.frame(param = row.names(mu.star_norm_nums), 
+                                     totalMuStar = rowSums(mu.star_norm_nums),
+                                     totalSigma = rowSums(sigma_norm_nums))
+
+tot_effect_norm_nums[order(tot_effect_norm_nums$totalMuStar, decreasing = TRUE),]
 
 
+#-------------------------------------------------------------------------------
+# stability
+#-------------------------------------------------------------------------------
 
-pdf(file.path(plotfolder, "total_normalized_effect_biomass.pdf"), height = 5, width = 10)
-#pdf("plots/total_per_change_init_effect_biomass.pdf", height = 5, width = 10)
-par(mfrow = c(1, 2), mar = c(3, 3, 1, 1), mgp = c(2, 0.5, 0))
 
-plot(tot_effect_norm$totalMuStar, tot_effect_norm$totalSigma, xlab = "mu.star", ylab = "sigma")
-label_pts = which(tot_effect_norm$totalSigma > 3)
-text(tot_effect_norm$totalMuStar[label_pts], tot_effect_norm$totalSigma[label_pts], labels = tot_effect_norm$param[label_pts], 
-     pos = 2, cex = 0.8)
-# same but zoom in 
-plot(tot_effect_norm$totalMuStar, tot_effect_norm$totalSigma, xlab = "mu.star", ylab = "sigma", 
-     xlim = c(0, 10), ylim = c(0, 10))
-label_pts = which(tot_effect_norm$totalSigma > 2)
-text(tot_effect_norm$totalMuStar[label_pts], tot_effect_norm$totalSigma[label_pts], labels = tot_effect_norm$param[label_pts], 
-     pos = 2, cex = 0.8)
-legend("bottomright", title = "(ZOOM)", legend = "", bty = "n")
+# stability using slope-in-range metric
+
+per_stable_per_sim = apply(stability_slope_in_range[,-1], 1, function(x) sum(x, na.rm = TRUE) / length(x)) # percent stable per sim
+hist(per_stable_per_sim)
+
+morris_out_stability = get_morris_output(design_matrix, data.frame(sim = stability_slope_in_range$sim, 
+                                                                   per = per_stable_per_sim))
+mu_stability = calculate_mu(morris_out_stability$ee)
+mu.star_stability = calculate_mu.star(morris_out_stability$ee)
+sigma_stability = calculate_sigma(morris_out_stability$ee)
+
+mu_stability = mu_stability[-which(rownames(mu_stability) == p_remove),,drop = FALSE]
+mu.star_stability = mu.star_stability[-which(rownames(mu.star_stability) == p_remove),,drop = FALSE]
+sigma_stability = sigma_stability[-which(rownames(sigma_stability) == p_remove),,drop = FALSE]
+
+# percent none or all stable
+sum(per_stable_per_sim == 0) / length(per_stable_per_sim)
+sum(per_stable_per_sim == 1) / length(per_stable_per_sim)
+
+summary(per_stable_per_sim)
+
+boxplot(per_stable_per_sim)
+
+barplot(mu_stability, beside = TRUE, 
+        ylab = "mu", las = 2, cex.names = 0.7,
+        names.arg = param_info$displayName[match(rownames(mu_stability), param_info$param_code)],
+        col = param_palatte[param_info$colIdx[match(rownames(mu_stability), param_info$param_code)]])
+points(1:length(mu.star_stability), mu.star_stability)
+
+mu_stability[order(mu_stability),] # values much smaller!
+
+# create these variables when running for each SA, be careful!!
+
+pdf(file.path(plotfolder, "boxplot_stability_SA1_SA2.pdf"), height = 4, width = 4)
+par(mar = c(2, 4, 0, 0) + 0.1, mgp = c(2, 0.5, 0))
+boxplot(per_stable_per_sim_SA1, per_stable_per_sim_SA2, 
+        ylab = "Proportion groups stable", names = ,
+        col = "gray85", frame = FALSE, xaxt='n')
+axis(side = 1, at = 1:2,labels = c("SA1", "SA2"), lwd.ticks = FALSE, lwd = FALSE)
+dev.off()
+
+### tables of ranks
+#------------------------------------------------------
+
+# list params from high to low for each metric
+tot_effect_ranks = data.frame( mu.star_biomass = tot_effect_norm_biomass$param[order(tot_effect_norm_biomass$totalMuStar, decreasing = TRUE)],
+                               sigma_biomass = tot_effect_norm_biomass$param[order(tot_effect_norm_biomass$totalSigma, decreasing = TRUE)],
+                               mu.star_nums = tot_effect_norm_nums$param[order(tot_effect_norm_nums$totalMuStar, decreasing = TRUE)],
+                               sigma_nums = tot_effect_norm_nums$param[order(tot_effect_norm_nums$totalSigma, decreasing = TRUE)],
+                               mu.star_stability = rownames(mu.star_stability)[order(mu.star_stability, decreasing = TRUE)],
+                               sigma_stability = rownames(sigma_stability)[order(sigma_stability, decreasing = TRUE)]
+)
+
+write.csv(tot_effect_ranks, file = file.path(plotfolder, "ranked_params.csv"), row.names = FALSE, quote = FALSE)
+
+#### mu* vs sigma for biomass, nums, stability
+#----------------------------------------------------
+
+# NOTE!!! the cut offs for labeling points ans the positions are hard-coded and change for the first and secon SA
+# PIA and be careful when running the code
+
+# also, some optional lines commented out which are used to make the presentation version of the plot
+
+pdf(file.path(plotfolder, "mu.star_vs_sigma_biom_nums_stab.pdf"), height = 4, width = 12)
+#png(file.path(plotfolder, "mu.star_vs_sigma_biom_nums_stab.png"), height = 4, width = 12, units = 'in', res = 300)
+par(mfrow = c(1,3), mar = c(3, 3, 2.5, 0.5), mgp = c(2, 0.5, 0))
+param_palatte = alpha(brewer.pal(3, "Dark2"), 1)
+param_info_plt = param_info[match(rownames(mu.star_stability), param_info$param_code),]
+#param_info_plt$invertIdx = param_info_plt$invertIdx + 15 # to make pts solid
+
+plot_lim = c(0, 1.05 * max(tot_effect_norm_biomass$totalMuStar, tot_effect_norm_biomass$totalSigma)) # to have asp = 1, using that makes x-axis neg in some cases
+plot(tot_effect_norm_biomass$totalMuStar, tot_effect_norm_biomass$totalSigma, 
+     pch = param_info_plt$invertIdx, col = param_palatte[param_info_plt$colIdx], 
+     xlim = plot_lim, ylim = plot_lim, 
+     xlab = "", ylab = "sigma", bty = "l", cex.lab = 1.2)
+label_pts = which(tot_effect_norm_biomass$totalMuStar > 5) # 5 for first_try
+pos_pts = c(4, 4, 4, 3, 4, 4, 4, 4, 4, 4) # first_try
+label_pts = which(tot_effect_norm_biomass$totalSigma > 11) # for two_noPPP
+pos_pts = c(4, 2, 4, 4, 2, 4, 4, 1, 4, 2, 4, 4) # two_noPPP
+
+abline(a = 0, b = 0.1, lty = 2, col = alpha("black", 0.5))
+abline(a = 0, b = 0.5, lty = 3, col = alpha("black", 0.6))
+abline(a = 0, b = 1, lty = 4, col = alpha("black", 0.5))
+text(tot_effect_norm_biomass$totalMuStar[label_pts], tot_effect_norm_biomass$totalSigma[label_pts], 
+     labels = param_info_plt$code[label_pts], 
+     pos = pos_pts, cex = 0.9, xpd = TRUE)
+mtext("Biomass (aggregated normalized effects)", side = 3, line = 1)
+
+legend("topleft", pch = c(19, 19, 19, 1, 2), 
+       col = c(param_palatte, "black", "black"), 
+       legend = c("growth", "mortality", "recruitment", "invertebrate", "vertebrate"), 
+       bty = "n")
+
+plot_lim = c(0, 1.05 * max(tot_effect_norm_nums$totalMuStar, tot_effect_norm_nums$totalSigma)) 
+plot(tot_effect_norm_nums$totalMuStar, tot_effect_norm_nums$totalSigma, 
+     pch = param_info_plt$invertIdx, col = param_palatte[param_info_plt$colIdx], 
+     xlim = plot_lim, ylim = plot_lim, 
+     xlab = "mu.star", ylab = "", bty = "l", cex.lab = 1.2)
+label_pts = which(tot_effect_norm_nums$totalMuStar > 2 | tot_effect_norm_nums$totalSigma > 2) # 2 for first_try
+pos_pts = c(4, 4, 4, 4, 2, 4, 4, 4, 4, 1, 4, 4) # first_try
+label_pts = which(tot_effect_norm_nums$totalMuStar > 3 | tot_effect_norm_nums$totalSigma > 4.5) #4 for two_noPPP
+pos_pts = c(4, 2, 4, 1, 4, 4, 4, 4, 4, 4, 4, 4) #two_noPPP
+
+abline(a = 0, b = 0.1, lty = 2, col = alpha("black", 0.5))
+abline(a = 0, b = 0.5, lty = 3, col = alpha("black", 0.6))
+abline(a = 0, b = 1, lty = 4, col = alpha("black", 0.5))
+text(tot_effect_norm_nums$totalMuStar[label_pts], tot_effect_norm_nums$totalSigma[label_pts], 
+     labels = param_info_plt$code[label_pts], 
+     pos = pos_pts, cex = 0.9, xpd = TRUE)
+mtext("Numbers (aggregated normalized effects)", side = 3, line = 1)
+
+
+plot_lim = c(0, 1.05 * max(mu.star_stability, sigma_stability) )
+plot(mu.star_stability, sigma_stability, 
+     pch = param_info_plt$invertIdx, col = param_palatte[param_info_plt$colIdx], 
+     xlim = plot_lim, ylim = plot_lim, 
+     xlab = "", ylab = "", bty = "l", cex.lab = 1.2)
+label_pts = which(mu.star_stability > 0.1) # 0.1 for first_try
+pos_pts = c(4, 4, 4, 4, 2, 4, 4, 4) # first_try
+label_pts = which(mu.star_stability > 0.05) # 0.0.05 for two_noPPP
+pos_pts = c(2, 4, 4, 4, 4, 4, 4, 4, 4, 3) # two_noPPP
+
+abline(a = 0, b = 0.1, lty = 2, col = alpha("black", 0.5))
+abline(a = 0, b = 0.5, lty = 3, col = alpha("black", 0.6))
+abline(a = 0, b = 1, lty = 4, col = alpha("black", 0.5))
+text(mu.star_stability[label_pts], sigma_stability[label_pts], labels = param_info_plt$code[label_pts], 
+     pos = pos_pts, cex = 0.9, xpd = TRUE)
+mtext("Proportion groups stable", side = 3, line = 1)
 
 dev.off()
+
 
 
 #-----------heatmaps--------------------------------------------------------------------
 
-pdf(file = file.path(plotfolder, "biomass_mu.star_norm_unit.pdf"), width = 12, height = 12)
-plot_ee_heatmap(mu.star_norm, "mu.star", param_info, group_info)
-dev.off()
 
-pdf(file = file.path(plotfolder, "biomass_mu_norm_unit.pdf"), width = 12, height = 12)
-plot_ee_heatmap(mu_norm, "mu", param_info, group_info, col = diverging_palette())
-dev.off()
 
-pdf(file = file.path(plotfolder, "biomass_sigma_norm_unit.pdf"), width = 12, height = 12)
-plot_ee_heatmap(sigma_norm, "sigma", param_info, group_info)
-dev.off()
+# organize by guild--------------------------------------
+mu.star_plot = plot_ee_heatmap_by_guild(mu.star_norm_biomass, "mu.star", param_info, group_info, title = "mu.star")
+mu_plot = plot_ee_heatmap_by_guild(mu_norm_biomass, "mu", param_info, group_info, col = diverging_palette(), title = "mu")
+sigma_plot = plot_ee_heatmap_by_guild(sigma_norm_biomass, "sigma", param_info, group_info, title = "sigma", annotate_type = TRUE)
 
-pdf(file = file.path(plotfolder, "biomass_all_norm_unit.pdf"), width = 24, height = 12)
-plot_mustar_mu_sigma(mu.star_norm, mu_norm, sigma_norm, param_info, group_info)
-dev.off()
-
-# normalized by init biomass--------------------------------------
-
-pdf(file = file.path(plotfolder, "biomas_mu.star_norm_init.pdf"), width = 12, height = 12)
-plot_ee_heatmap(mu.star_norm_init, "mu.star", param_info, group_info, col = gray_palette(range = range(mu.star_norm_init)))
-dev.off()
-
-pdf(file = file.path(plotfolder, "biomass_mu_norm_init.pdf"), width = 12, height = 12)
-plot_ee_heatmap(mu_norm_init, "mu", param_info, group_info, col = diverging_palette(range = range(mu_norm_init)))
-dev.off()
-
-pdf(file = file.path(plotfolder, "biomass_sigma_norm_init.pdf"), width = 12, height = 12)
-plot_ee_heatmap(sigma_norm_init, "sigma", param_info, group_info, col = gray_palette(range = range(sigma_norm_init)))
-dev.off()
-
-pdf(file = file.path(plotfolder, "biomass_all_norm_init.pdf"), width = 24, height = 12)
-plot_mustar_mu_sigma(mu.star_norm_init, mu_norm_init, sigma_norm_init, param_info, group_info)
+pdf(file = file.path(plotfolder, "guild_all_norm_unit_biomass.pdf"), width = 24, height = 12)
+mu.star_plot + mu_plot + sigma_plot
 dev.off()
 
 
-#☻ look at difference between mu and mu.star (i.e. non-linear effects?)
-# would be better with normalized biomass
-mu_diff = mu.star - abs(mu)
-Heatmap(mu_diff, name = "diff", column_title = "Group", row_title = "Parameter",
-        row_names_gp = gpar(fontsize = 7), column_names_gp = gpar(fontsize = 9),
-        left_annotation = row_annot(param_info), top_annotation = col_annot(group_info),
-        col = colorRamp2(breaks = range(mu_diff), colors = c("white", "black")))
+mu.star_plot = plot_ee_heatmap_by_guild(mu.star_norm_nums, "mu.star", param_info, group_info, title = "mu.star")
+mu_plot = plot_ee_heatmap_by_guild(mu_norm_nums, "mu", param_info, group_info, col = diverging_palette(), title = "mu")
+sigma_plot = plot_ee_heatmap_by_guild(sigma_norm_nums, "sigma", param_info, group_info, title = "sigma", annotate_type = TRUE)
 
+pdf(file = file.path(plotfolder, "guild_all_norm_unit_nums.pdf"), width = 24, height = 12)
+mu.star_plot + mu_plot + sigma_plot
+dev.off()
 
+# -------------individual group plots --------------------------------------
 
-param_palatte = alpha(brewer.pal(3, "Dark2"), 1)
-i = 10
-most_influ = NULL
-target_out = NULL
-for (i in 1:ncol(mu.star))
-{
-  code = colnames(mu.star)[i]
-  pchs = param_info$invertIdx
-  pchs[param_info$group == code] = ifelse(code %in% age_codes, 17, 19)
-  
-  mu_thresh = mean(mu.star[,i]) + sd(mu.star[,i])
-  sigma_thresh = mean(sigma[,i]) + sd(sigma[,i])
-  label_pts = which(sigma[,i] > sigma_thresh | mu.star[,i] > mu_thresh)
-  most_influ = c(most_influ, label_pts)
-  target_out = c(target_out, rep(code, length(label_pts)))
-  
-  for (t in 2) # c(2, 4)
-  {
-    png(filename = file.path(plotfolder, paste0(code, "_morris_ee_text_", t, ".png")), width = 600, height = 600)
-    plot(mu.star[,i], sigma[,i], 
-         pch = pchs, col = param_palatte[param_info$colIdx], 
-         cex = 2.5, cex.axis = 1.5, cex.lab = 1.5, cex.main = 2,
-         xlab = "mu.star", ylab = "sigma", main = get_group_long_names(code, FUNCTIONAL_GROUPS_FILE))
-    text(mu.star[label_pts,i], sigma[label_pts,i], labels = param_info$longName[label_pts], 
-         pos = t, cex = 1.5)
-    
-    dev.off()
-    
-    png(filename = file.path(plotfolder, paste0(code, "_morris_mu_text_", t, ".png")), width = 600, height = 600)
-    plot(mu.star[,i], mu[,i], 
-         pch = pchs, col = param_palatte[param_info$colIdx], 
-         cex = 2.5, cex.axis = 1.5, cex.lab = 1.5, cex.main = 2,
-         xlab = "mu.star", ylab = "mu", main = get_group_long_names(code, FUNCTIONAL_GROUPS_FILE))
-    text(mu.star[label_pts,i], mu[label_pts,i], labels = param_info$longName[label_pts], 
-         pos = t, cex = 1.5)
-    
-    dev.off()
-    
-  }
-  
-  # print(paste(code, "mu thresh", round(mu_thresh), "pts >", sum(mu.star[,i] > mu_thresh),
-  #             "sigma thresh", round(sigma_thresh), "pts >", sum(sigma[,i] > sigma_thresh)))
-}
+pdf(file = file.path(plotfolder, "individual_biomass_mu.star_vs_sigma.pdf"), width = 20, height = 16)
+par(mfrow = c(4, 5), mar = c(3, 3, 2, 0) + 0.1, mgp = c(1, 0.5, 0), oma = c(2, 2, 0, 0.1))
 
-png(filename = file.path("plots", "legend_morris_ee.png"), width = 600, height = 350)
-
-plot(0, 0, type = "n", xlim = c(0,1), ylim = c(0,0.5))
-legend("topleft", pch = c(19, 19, 19, 1, 2), 
-       col = c(param_palatte, "black", "black"), 
-       legend = c("growth", "mortality", "recruitment", "invertebrate", "vertebrate"), 
-       bty = "n", cex = 2)
+plot_mu_vs_sigma_by_group(mu.star_biomass, sigma_biomass, param_info, group_info, 1:20)
+plot_mu_vs_sigma_by_group(mu.star_biomass, sigma_biomass, param_info, group_info, 21:40)
 
 dev.off()
 
-table(row.names(mu)[most_influ])
-table(unlist(param_info$name)[most_influ])
-table(param_info$longName[most_influ])
 
-most_most_influ = data.frame(table(most_influ))
-most_most_influ$most_influ = as.numeric(as.character(most_most_influ$most_influ))
-most_most_influ = most_most_influ[most_most_influ$Freq > 1,]
-most_most_influ = cbind(group = param_info$longName[most_most_influ$most_influ], 
-                        param = unlist(param_info$name[most_most_influ$most_influ]), 
-                        most_most_influ)
-most_most_influ[order(most_most_influ$Freq, decreasing = TRUE),]
+pdf(file = file.path(plotfolder, "individual_nums_mu.star_vs_sigma.pdf"), width = 28, height = 12)
+par(mfrow = c(3, 7), mar = c(3, 3, 2, 0) + 0.1, mgp = c(1, 0.5, 0), oma = c(2, 2, 0, 0.1))
 
-####
-# old plain heatmap
+plot_mu_vs_sigma_by_group(mu.star_nums, sigma_nums, param_info, group_info, 1:21)
 
-# make heat map
-graysc = gray(seq(from = 1, to = 0, length = 256))
-divsc = colorRampPalette(brewer.pal(11, "PiYG"))(256)
-param_cols = brewer.pal(3, "Dark2")[param_info$colIdx]
-group_cols = brewer.pal(3, "Set1")[group_info$invertIdx]
-heatmap(mu.star, scale = "column", col = graysc) # this appears to be different and not what we want
+dev.off()
 
-# basic heatmap
-heatmap(mu.star_norm, scale = "none", col = graysc,
-        RowSideColors = param_cols, ColSideColors = group_cols)
 
-heatmap(sigma_norm, scale = "none", col = graysc,
-        RowSideColors = param_cols, ColSideColors = group_cols)
+######--------------non-infuential parameters------------------------------------------
 
-heatmap(mu_norm, scale = "none", col = divsc, 
-        breaks = seq(from = -1, to = 1, length = length(divsc) + 1),
-        RowSideColors = param_cols, ColSideColors = group_cols)
+library(VennDiagram)
+
+# initial rough calculation, take as non-infuential those that have an agg mu.star < 1
+
+# from tot_efffect_X in each case
+ni_biom_SA1 = c("C_SXX_age", "mL_POL_juv", "C_SB_age", "C_ZOG_single", "mL_LBT_adult", "mQ_CLU_juv", "mQ_ZOG_single", "mL_RAY_juv",
+  "mL_LBT_juv", "mL_RAY_adult", "mL_PP_single", "C_CET_age", "mL_ZOG_single", "C_CEP_adult", "mL_SB_adult", "mL_SHK_juv", "mL_SHK_adult", "mL_CLU_juv", "mQ_CLU_adult", "mL_CET_adult")
+ni_nums_SA1 = c("mL_SXX_adult", "mQ_ZOO_single", "C_SMD_age", "C_CLU_age", "C_CRA_single", "C_BIV_single", "mL_ZOO_single", "mQ_DEP_single", "mQ_ECH_single", "C_WHE_single", "mL_POL_adult", "C_RAY_age",
+  "C_WHG_age", "C_SCE_single", "mQ_CRA_single", "C_SXX_age", "mQ_BIV_single", "C_GAD_age", "mL_POL_juv", "C_SHK_age", "C_MUL_age", "mL_RAY_juv", "mQ_CLU_juv", "C_ZOC_single",
+  "C_SUS_single", "mL_LBT_juv", "mQ_ZOC_single", "C_SB_age", "C_CET_age", "mL_RAY_adult", "mL_LBT_adult", "mL_SB_adult", "C_DAB_age", "mL_SHK_juv", "C_GUX_age", "mL_ZOC_single", "mQ_WHE_single",
+  "C_LBT_age", "C_MAC_age", "mQ_ZOG_single", "C_SHP_single", "mQ_SCE_single", "C_OFF_age", "C_COD_age", "C_SOL_age", "C_POL_age", "mQ_SHP_single", "mQ_CLU_adult", "mQ_SUS_single", "mL_PP_single",
+  "C_SPA_age", "mL_SHK_adult", "C_BSS_age", "C_PLE_age", "mQ_LBE_single", "C_ZOG_single", "mL_ZOG_single", "mL_CLU_juv", "C_LBE_single", "C_CEP_adult", "mL_CET_adult")
+ni_biom_SA2 = c()
+ni_nums_SA2 = c("mL_LBT_juv", "C_BSS_age", "mQ_SHP_single", "mL_SHK_juv", "C_POL_age", "C_MUL_age", "C_GAD_age", "mQ_LBE_single",
+  "mQ_CLU_juv", "mL_POL_juv", "mQ_CLU_adult", "mQ_SUS_single", "C_CEP_adult", "C_SPA_age", "C_GUX_age", "C_LBT_age", "C_SUS_single")
+
+venn.diagram(x = list(ni_biom_SA1, ni_nums_SA1, ni_nums_SA2),
+             category.names = c("biom SA1", "nums SA1", "nums SA2"),
+             filename = file.path(plotfolder, "venn-diagram_not_infl.png"))
+
+sort(setdiff(ni_nums_SA1, ni_nums_SA2))
+sort(setdiff(ni_nums_SA2, ni_nums_SA1)) # no params are ni in SA2 but not SA1
+
+# those that are almost always ni (except biom_SA2 and stability)
+intersect(intersect(ni_biom_SA1, ni_nums_SA1), ni_nums_SA2)
+
+# those that are ni to both biom and nums in SA1
+intersect(ni_biom_SA1, ni_nums_SA1)
+
+
+### correlation of outputs ####
+##---------------------------------------------------------------------------------------------
+library(corrplot)
+
+pdf(file = file.path(plotfolder, "correlation_biomass_nums.pdf"), width = 12, height = 12)
+par(mfrow = c(2,2), mar = c(0, 5, 4, 1) + 0.1)
+
+plot_corr_plot(read.csv(SA1_biomass_file), group_info)
+mtext("SA1 biomass", side = 3, line = 2.5, cex = 1.2)
+plot_corr_plot(read.csv(SA1_nums_file), group_info, add_missing_groups = TRUE)
+mtext("SA1 numbers", side = 3, line = 2.5, cex = 1.2)
+
+plot_corr_plot(read.csv(SA2_biomass_file), group_info)
+mtext("SA2 biomass", side = 3, line = 2.5, cex = 1.2)
+plot_corr_plot(read.csv(SA2_nums_file), group_info)
+mtext("SA2 numbers", side = 3, line = 2.5, cex = 1.2)
+
+dev.off()
 
 #### --------------- simulations gone amok analysis ----------------------------------------------------
-range(consolid_results$CET)
+range(consolid_results_biomass$CET)
+hist(consolid_results_biomass$CET)
+table(cut(consolid_results_biomass$CET, breaks = c(0, 0.01, 0.1, 0.5, 1, 10, 100, 1000, 1e8, 1e9, 1e10, 2e10)))
+
+design_matrix_sub = design_matrix %>% filter(simID %in% consolid_results_biomass$sim) 
 cet_idx = grep("CET", colnames(design_matrix_sub))
 
-apply(design_matrix_sub[consolid_results$CET < 0.5, cet_idx], 2, table)
-apply(design_matrix_sub[consolid_results$CET > 1e9, cet_idx], 2, table)
+apply(design_matrix_sub[consolid_results_biomass$CET < 0.5, cet_idx], 2, table)
+apply(design_matrix_sub[consolid_results_biomass$CET > 1000, cet_idx], 2, table)
+apply(design_matrix_sub[consolid_results_biomass$CET > 1e8, cet_idx], 2, table)
 
 # look at range for important params of top pred
 range_output_for_param = function(sim_output, param_col)
@@ -340,15 +362,40 @@ range_output_for_param = function(sim_output, param_col)
                        range)) )
 }
 
-range_output_for_param(consolid_results$CET, "KDENR_CET_single")
-range_output_for_param(consolid_results$CET, "mL_CET_juv")
-range_output_for_param(consolid_results$CET, "mL_CET_adult")
+range_output_for_param(consolid_results_biomass$CET, "KDENR_CET_single")
+range_output_for_param(consolid_results_biomass$CET, "mL_CET_juv")
+range_output_for_param(consolid_results_biomass$CET, "mL_CET_adult")
 
-range_output_for_param(consolid_results$SB, "KDENR_SB_single")
-range_output_for_param(consolid_results$SB, "mL_SB_juv")
-range_output_for_param(consolid_results$SB, "mL_SB_adult")
+range_output_for_param(consolid_results_biomass$SB, "KDENR_SB_single")
+range_output_for_param(consolid_results_biomass$SB, "mL_SB_juv")
+range_output_for_param(consolid_results_biomass$SB, "mL_SB_adult")
 
-range_output_for_param(consolid_results$SXX, "KDENR_SXX_single")
-range_output_for_param(consolid_results$SXX, "mL_SXX_juv")
-range_output_for_param(consolid_results$SXX, "mL_SXX_adult")
+range_output_for_param(consolid_results_biomass$SXX, "KDENR_SXX_single")
+range_output_for_param(consolid_results_biomass$SXX, "mL_SXX_juv")
+range_output_for_param(consolid_results_biomass$SXX, "mL_SXX_adult")
 
+# look at all sims with the 'bad' param combos mL_juv = 1 and KDENR >= 5
+# how many crashed and how many didn't
+
+crash_sims = read.csv(DESIGN_MATRIX_FILE, stringsAsFactors = FALSE)
+crash_sims$y = rep(1, length(crash_sims$simID))
+crash_sims$y[crash_sims$simID %in% sims_too_short] = 0
+
+crash_sims_cet = crash_sims[crash_sims$mL_CET_juv == 1 & crash_sims$KDENR_CET_single >= 5,]
+table(paste(crash_sims_cet$mL_CET_juv, crash_sims_cet$KDENR_CET_single), crash_sims_cet$y)
+summary(consolid_results_biomass$CET[consolid_results_biomass$sim %in% crash_sims_cet$simID[crash_sims_cet$y == 1]])
+nrow(crash_sims_cet)
+
+
+# summary crash happens when mL_CET_juv == 1 and KDENR_CET_single >= 5, this happened for 9 trajectories
+# however, two trajectories when KDENR_CET_single == 5 and didn't crash and one that did, so a bit more marginal
+# and somewhat dependant on other parameters for state of ecosystem
+
+############################################################################################
+
+# to create param_info and group_info files, need to have created a morris output summary, i.e. mu.star
+
+#get init biomass, nums, for now use first sim output
+load(file.path(output_folder, "AEEC_SA_sim10001.rdata")) # this loads metrics object into env
+
+create_group_and_param_info(mu.star_biomass, metrics, FUNCTIONAL_GROUPS_FILE, PARAM_INFO_FILE, GROUP_INFO_FILE)
