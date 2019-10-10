@@ -58,6 +58,10 @@ create_run_sh_scripts(id_indices = 10547:12548, user = "cbracis",
 create_run_sh_scripts(id_indices = 12549:14550, user = "rgirardi",
                       output_directory = OUTPUT_DIR, file_base_name = SHELL_SCRIPT_BASE_NAME)
 
+
+create_run_sh_scripts(id_indices = c(11632, 11633, 11634, 11635, 11636, 11637, 11841, 11842, 12514, 13089, 13100, 13129, 13189, 13376, 13531, 13660, 13699, 13799, 14014, 14030, 14049, 14158, 14195, 14475),
+                      user = "cbracis", output_directory = OUTPUT_DIR, file_base_name = SHELL_SCRIPT_BASE_NAME)
+
 # phase 2 no prim prod or top pred
 
 create_run_sh_scripts(id_indices = 10001:11700, user = "cbracis",
