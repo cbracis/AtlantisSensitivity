@@ -76,7 +76,7 @@ C_values_plot = fit_C_from_init_biomass(base_init, base_biol_prm, base_fgs, base
 
 pdf("plots/C_fit_init_std_factors.pdf", width = 12, height = 8)
 #png("plots/C_fit_init_std_factors.png", width = 12, height = 8, units = "in", res = 300)
-plot_C_for_age_groups_levels(C_values_plot, c(-0.5, -0.25, 0.25, 1))
+plot_C_for_age_groups_bounds(C_values_plot, c(-0.5, 1))
 dev.off()
 
 C_values_plot = left_join(C_values_plot,

@@ -23,6 +23,23 @@ plot_C_for_age_groups_levels = function(df, paramIncDec)
   return(theplot)
 }
 
+plot_C_for_age_groups_bounds = function(df, paramIncDec)
+{
+  cols = factor(as.character(paramIncDec), ordered = TRUE)
+  paramIncDec = 1 + paramIncDec # can now be multiplies directly by Cpred value
+  
+  theplot = ggplot(data = df, aes(x = Age, y = Value)) +
+    ylab("C") +
+    geom_line() + geom_point() + 
+    geom_line(aes(x = Age, y = Cpred), col = "purple") +
+    geom_line(aes(y = paramIncDec[1] * Cpred), col = "blue") +
+    geom_line(aes(y = paramIncDec[2] * Cpred), col = "blue") +
+    theme_classic() +
+    # theme(legend.position = c(0.3, 0.05))
+    facet_wrap(~ longName, scales = "free")
+  return(theplot)
+}
+
 plot_mum_for_age_groups = function(df, CmultFactor, paramIncDec)
 {
   cols = factor(as.character(paramIncDec), ordered = TRUE)
