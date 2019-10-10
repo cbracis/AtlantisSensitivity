@@ -1,6 +1,5 @@
 
 source("consolidateSimulationOutput.R")
-source("writeParams.R")
 #source("getGroups.R")
 #source("utilityFuncs.R")
 
@@ -42,6 +41,12 @@ consolidate_output_avgs(files, "biomass.60.70", "code", results_folder)
 consolidate_output_avgs(files, "nums.90.100", "code", results_folder)
 consolidate_output_avgs(files, "nums.60.70", "code", results_folder)
 
+# stability
+complete_sims = sims # will fill in not stable for crashing sims
+files = file.path(output_folder, paste0("AEEC_SA_sim",
+                                        complete_sims,
+                                        "_last_ten_years_avg_nonage.csv"))
+consolidate_stability(files, "biomass", results_folder)
 
 #### --------------- simulation clean up ----------------------------------------------------
 

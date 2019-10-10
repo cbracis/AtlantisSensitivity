@@ -272,6 +272,12 @@ calculate_10_years = function(metric_list, max_year = 100, fgs = NULL)
   return(calculate_avg_timespan_intervals(metric_list, 0, max_year, 10, fgs))
 }
 
+# calculates each year of the last ten years for stability analysis
+calculate_each_last_10_years = function(metric_list, max_year = 100, fgs = NULL)
+{
+  return(calculate_avg_timespan_intervals(metric_list, 90, max_year, 1, fgs))
+}
+
 # verify atlantis output, that there is enough and it didn't crash
 # note attribute n_years may not be accurate if interval doesn't line up evenly with years
 verify_atlantis_output = function(output_nc, run_prm)

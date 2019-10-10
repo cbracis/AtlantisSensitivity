@@ -11,9 +11,9 @@ sim_id = 10003
 aeec_prm_biol = file.path(aeec_root_path, paste0("AEEC_biol", sim_id, ".prm"))
 
 aeec_bgm = file.path( aeec_root_path, "..", "poly_atlantisEC35_projETRS89_LAEA_snapped0p002.bgm")
-aeec_fgs = file.path(aeec_root_path, "..", "SETasGroups.csv")  # functional groups file
-aeec_init = file.path(aeec_root_path, "..", "AEECF_200y_ini.nc") # initial conditions for groups, etc.
-aeec_prm_run = file.path(aeec_root_path, "..", "AEEC_run.prm") # model run parameters 
+aeec_fgs = file.path(aeec_root_path, "SETasGroups.csv")  # functional groups file
+aeec_init = file.path(aeec_root_path, "AEECF_200y_ini.nc") # initial conditions for groups, etc.
+aeec_prm_run = file.path(aeec_root_path, "AEEC_run.prm") # model run parameters 
 
 # Atlantis output files
 aeec_outdir = file.path(sim_results_root_path, "output-done") #file.path(sim_results_root_path, paste0("sim", sim_id))
@@ -49,6 +49,7 @@ plot((avg_compare$avg - avg_compare$biomass)/avg_compare$avg)
 
 five_year_avg = calculate_5_years(metrics, fgs = aeec_fgs)
 ten_year_avg = calculate_10_years(metrics, fgs = aeec_fgs)
+last_ten_years = calculate_each_last_10_years(metrics, fgs = aeec_fgs)
 
 
 process_atlantis_results(aeec_root_path, aeec_outdir, sim_id)

@@ -54,6 +54,11 @@ EEC_PARAM_VALUES_FILE = "files/aeecParameterData.csv"
 FITTED_C_VALUES_FILE = "files/fitted_C_values.csv"
 # factor values for BHalpha calculated from stock assesments
 BHALPHA_MULT_FACTORS_FILE = "files/BHalpha_mult_factors.csv"
+# summary info on parameters for plotting results
+PARAM_INFO_FILE = "files/param_info.csv"
+# summary info on groups for plotting results
+GROUP_INFO_FILE = "files/group_info.csv"
+
 
 # directories
 OUTPUT_DIR = "output"

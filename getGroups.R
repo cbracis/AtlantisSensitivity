@@ -96,3 +96,21 @@ get_codes_from_long_names = function(groups, functional_groups_file)
   return(codes)
 }
 
+# these are hard-coded guilds (i.e. categories) of groups
+get_group_guild = function(group_codes)
+{
+  # question, should DEP be infauna, epibenthos, or something else?
+  guild = c("BB"  = "Recycl. / Primary prod.", "BIV" = "Filter feeder", "BSS" = "Fish - demersal", "CEP" = "Squid", 
+            "CET" = "Mammal / bird", "CLU" = "Fish - pelagic", "COD" = "Fish - demersal", "CRA" = "Epibenthos", 
+            "DAB" = "Fish - demersal", "DEP" = "Epibenthos", "DET" = "Recycl. / Primary prod.", "DL" = "Recycl. / Primary prod.", 
+            "DR" = "Recycl. / Primary prod.", "ECH" = "Epibenthos", "GAD" = "Fish - demersal", "GUX" = "Fish - demersal",
+            "LBE" = "Epibenthos", "LBT" = "Fish - demersal", "MAC" = "Fish - pelagic", "MUL" = "Fish - demersal", 
+            "OFF" = "Fish - demersal", "PB" = "Recycl. / Primary prod.",  "PLE" = "Fish - demersal", "POL" = "Fish - demersal", 
+            "PP" = "Recycl. / Primary prod.", "RAY" = "Shark / ray", "SB" = "Mammal / bird", "SCE" = "Filter feeder", 
+            "SHK" = "Shark / ray", "SHP" = "Epibenthos", "SMD" = "Fish - demersal", "SOL" = "Fish - demersal", 
+            "SPA" = "Fish - demersal", "SUS" = "Filter feeder", "SXX" = "Mammal / bird", "WHE" = "Epibenthos", 
+            "WHG" = "Fish - demersal", "ZOC" = "Zooplankton", "ZOG" = "Zooplankton", "ZOO" = "Zooplankton")
+  
+ idxs = match(group_codes, names(guild))
+ return(guild[idxs])
+}

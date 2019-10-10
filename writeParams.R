@@ -26,7 +26,7 @@ create_sim_param_files = function(sa_design, param_bounds, base_biology_param_fi
     {
       param_value = sa_values[s, p]
       param_info = split_param(p)
-      open_param_file = set_param(param_info$name, param_info$group, param_info$suffix, param_value, open_param_file)
+      open_param_file = set_param(param_info$param, param_info$code, param_info$suffix, param_value, open_param_file)
     }
     
     write_file(open_param_file, param_file)
@@ -135,7 +135,7 @@ split_param = function(param_str)
 {
   param = strsplit(param_str, "_")[[1]]
   param = as.list(param)
-  names(param) = c("name", "group", "suffix")
+  names(param) = c("param", "code", "suffix")
   return(param)
 }
 
