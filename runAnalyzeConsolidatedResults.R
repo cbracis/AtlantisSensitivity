@@ -35,6 +35,7 @@ design_matrix = read.csv(DESIGN_MATRIX_FILE, stringsAsFactors = FALSE)
 output_folder = "Y:/SA_first_try/output_done"
 
 plotfolder = "plots/SA_first_try/paper"
+analysis = "SA1"
 
 #-----------------------------------------------------------------------------------
 # SA_two_noPPP
@@ -52,7 +53,7 @@ design_matrix = read.csv(DESIGN_MATRIX_FILE_TWO, stringsAsFactors = FALSE)
 output_folder = "Y:/SA_two_noPPP/output_done"
 
 plotfolder = "plots/SA_two_noPPP/paper"
-
+analysis = "SA2"
 #-----------------------------------------------------------------------------------
 #   for all cases
 # ----------------------------------------------
@@ -110,6 +111,33 @@ tot_effect_norm_nums = data.frame(param = row.names(mu.star_norm_nums),
                                      totalSigma = rowSums(sigma_norm_nums))
 
 tot_effect_norm_nums[order(tot_effect_norm_nums$totalMuStar, decreasing = TRUE),]
+
+#init
+consolid_results_nums_init = normalize_results_by_init(consolid_results_nums, 
+                                                  group_info %>% dplyr::select(code, nums.init) %>% rename(val = nums.init))
+consolid_results_biomass_init = normalize_results_by_init(consolid_results_biomass, 
+                                                  group_info %>% dplyr::select(code, biomass.init) %>% rename(val = biomass.init))
+
+morris_out_nums_init = get_morris_output(design_matrix, consolid_results_nums_init)
+morris_out_biomass_init = get_morris_output(design_matrix, consolid_results_biomass_init)
+
+mu_norm_nums_init = calculate_mu(morris_out_nums_init$ee)
+mu.star_nums_init = calculate_mu.star(morris_out_nums_init$ee)
+sigma_nums_init = calculate_sigma(morris_out_nums_init$ee)
+
+mu_norm_biomass_init = calculate_mu(morris_out_biomass_init$ee)
+mu.star_biomass_init = calculate_mu.star(morris_out_biomass_init$ee)
+sigma_biomass_init = calculate_sigma(morris_out_biomass_init$ee)
+
+tot_effect_init_nums = data.frame(param = row.names(mu.star_nums_init), 
+                                  totalMuStar = rowSums(mu.star_nums_init),
+                                  totalSigma = rowSums(sigma_nums_init))
+tot_effect_init_nums[order(tot_effect_init_nums$totalMuStar, decreasing = TRUE),]
+
+tot_effect_init_biomass = data.frame(param = row.names(mu.star_biomass_init), 
+                                  totalMuStar = rowSums(mu.star_biomass_init),
+                                  totalSigma = rowSums(sigma_biomass_init))
+tot_effect_init_biomass[order(tot_effect_init_biomass$totalMuStar, decreasing = TRUE),]
 
 
 #-------------------------------------------------------------------------------
@@ -192,10 +220,12 @@ plot(tot_effect_norm_biomass$totalMuStar, tot_effect_norm_biomass$totalSigma,
      pch = param_info_plt$invertIdx, col = param_palatte[param_info_plt$colIdx], 
      xlim = plot_lim, ylim = plot_lim, 
      xlab = "", ylab = "sigma", bty = "l", cex.lab = 1.2)
-label_pts = which(tot_effect_norm_biomass$totalMuStar > 5) # 5 for first_try
-pos_pts = c(4, 4, 4, 3, 4, 4, 4, 4, 4, 4) # first_try
-label_pts = which(tot_effect_norm_biomass$totalSigma > 11) # for two_noPPP
-pos_pts = c(4, 2, 4, 4, 2, 4, 4, 1, 4, 2, 4, 4) # two_noPPP
+label_pts = switch(analysis,
+                   SA1 = which(tot_effect_norm_biomass$totalMuStar > 5), # 5 for first_try
+                   SA2 = which(tot_effect_norm_biomass$totalSigma > 11) ) # for two_noPPP
+pos_pts = switch(analysis,
+                 SA1 = c(4, 4, 4, 3, 4, 4, 4, 4, 4, 4), # first_try
+                 SA2 = c(4, 2, 4, 4, 2, 4, 4, 1, 4, 2, 4, 4) ) # two_noPPP
 
 abline(a = 0, b = 0.1, lty = 2, col = alpha("black", 0.5))
 abline(a = 0, b = 0.5, lty = 3, col = alpha("black", 0.6))
@@ -215,10 +245,12 @@ plot(tot_effect_norm_nums$totalMuStar, tot_effect_norm_nums$totalSigma,
      pch = param_info_plt$invertIdx, col = param_palatte[param_info_plt$colIdx], 
      xlim = plot_lim, ylim = plot_lim, 
      xlab = "mu.star", ylab = "", bty = "l", cex.lab = 1.2)
-label_pts = which(tot_effect_norm_nums$totalMuStar > 2 | tot_effect_norm_nums$totalSigma > 2) # 2 for first_try
-pos_pts = c(4, 4, 4, 4, 2, 4, 4, 4, 4, 1, 4, 4) # first_try
-label_pts = which(tot_effect_norm_nums$totalMuStar > 3 | tot_effect_norm_nums$totalSigma > 4.5) #4 for two_noPPP
-pos_pts = c(4, 2, 4, 1, 4, 4, 4, 4, 4, 4, 4, 4) #two_noPPP
+label_pts = switch(analysis,
+                   SA1 = which(tot_effect_norm_nums$totalMuStar > 2 | tot_effect_norm_nums$totalSigma > 2), # 2 for first_try
+                   SA2 = which(tot_effect_norm_nums$totalMuStar > 3 | tot_effect_norm_nums$totalSigma > 4.5) ) #4 for two_noPPP
+pos_pts = switch(analysis,
+                 SA1 = c(4, 4, 4, 4, 2, 4, 4, 4, 4, 1, 4, 4), # first_try
+                 SA2 = c(4, 2, 4, 1, 4, 4, 4, 4, 4, 4, 4, 4) ) #two_noPPP
 
 abline(a = 0, b = 0.1, lty = 2, col = alpha("black", 0.5))
 abline(a = 0, b = 0.5, lty = 3, col = alpha("black", 0.6))
@@ -234,10 +266,12 @@ plot(mu.star_stability, sigma_stability,
      pch = param_info_plt$invertIdx, col = param_palatte[param_info_plt$colIdx], 
      xlim = plot_lim, ylim = plot_lim, 
      xlab = "", ylab = "", bty = "l", cex.lab = 1.2)
-label_pts = which(mu.star_stability > 0.1) # 0.1 for first_try
-pos_pts = c(4, 4, 4, 4, 2, 4, 4, 4) # first_try
-label_pts = which(mu.star_stability > 0.05) # 0.0.05 for two_noPPP
-pos_pts = c(2, 4, 4, 4, 4, 4, 4, 4, 4, 3) # two_noPPP
+label_pts = switch(analysis,
+                   SA1 = which(mu.star_stability > 0.1), # 0.1 for first_try
+                   SA2 = which(mu.star_stability > 0.05) ) # 0.0.05 for two_noPPP
+pos_pts = switch(analysis,
+                 SA1 = c(4, 4, 4, 4, 2, 4, 4, 4), # first_try
+                 SA2 = c(2, 4, 4, 4, 4, 4, 4, 4, 4, 3) ) # two_noPPP
 
 abline(a = 0, b = 0.1, lty = 2, col = alpha("black", 0.5))
 abline(a = 0, b = 0.5, lty = 3, col = alpha("black", 0.6))
@@ -274,8 +308,8 @@ dev.off()
 
 # -------------individual group plots --------------------------------------
 
-pdf(file = file.path(plotfolder, "individual_biomass_mu.star_vs_sigma.pdf"), width = 20, height = 16)
-par(mfrow = c(4, 5), mar = c(3, 3, 2, 0) + 0.1, mgp = c(1, 0.5, 0), oma = c(2, 2, 0, 0.1))
+pdf(file = file.path(plotfolder, "individual_biomass_mu.star_vs_sigma.pdf"), width = 20, height = 16*2)
+par(mfrow = c(8, 5), mar = c(3, 3, 2, 0) + 0.1, mgp = c(1, 0.5, 0), oma = c(2, 2, 0, 0.1))
 
 plot_mu_vs_sigma_by_group(mu.star_biomass, sigma_biomass, param_info, group_info, 1:20)
 plot_mu_vs_sigma_by_group(mu.star_biomass, sigma_biomass, param_info, group_info, 21:40)
@@ -340,6 +374,60 @@ mtext("SA2 biomass", side = 3, line = 2.5, cex = 1.2)
 plot_corr_plot(read.csv(SA2_nums_file), group_info)
 mtext("SA2 numbers", side = 3, line = 2.5, cex = 1.2)
 
+dev.off()
+
+########### compare diff numner of trajectories #################################
+reps = 100
+set.seed(31)
+
+samp_10 = design_sample(design_matrix, n_sample = 10, n_rep = reps)
+samp_20 = design_sample(design_matrix, n_sample = 20, n_rep = reps)
+samp_30 = design_sample(design_matrix, n_sample = 30, n_rep = reps)
+samp_40 = design_sample(design_matrix, n_sample = 40, n_rep = reps)
+
+mu.star_10 = sample_morris_output(consolid_results_biomass, design_matrix, samp_10, effect = "mu.star")
+mu.star_20 = sample_morris_output(consolid_results_biomass, design_matrix, samp_20, effect = "mu.star")
+mu.star_30 = sample_morris_output(consolid_results_biomass, design_matrix, samp_30, effect = "mu.star")
+mu.star_40 = sample_morris_output(consolid_results_biomass, design_matrix, samp_40, effect = "mu.star")
+
+sigma_10 = sample_morris_output(consolid_results_biomass, design_matrix, samp_10, effect = "sigma")
+sigma_20 = sample_morris_output(consolid_results_biomass, design_matrix, samp_20, effect = "sigma")
+sigma_30 = sample_morris_output(consolid_results_biomass, design_matrix, samp_30, effect = "sigma")
+sigma_40 = sample_morris_output(consolid_results_biomass, design_matrix, samp_40, effect = "sigma")
+
+# annoying, but we need a different ylim for SA1 and SA2
+ylim = c(-1, 4) # SA_first_try
+ylim = c(-0.7, 1) # SA_two_noPPP
+
+pdf(file.path(plotfolder, paste0("traj_mu.star_biomass.pdf")), width = 10, height = 14)
+par(mfrow = c(8, 5), mar = c(3, 2, 2, 0) + 0.1, mgp = c(1, 0.5, 0), oma = c(0, 2, 0, 0), las = 1)
+plot_subset_traj(mu.star_biomass, mu.star_10, mu.star_20, mu.star_30, mu.star_40, ylim = ylim, param_info)
+dev.off()
+
+ylim = c(-1, 2) # SA_first_try
+ylim = c(-1, 1.2) # SA_two_noPPP
+
+pdf(file.path(plotfolder, paste0("traj_sigma_biomass.pdf")), width = 10, height = 14)
+par(mfrow = c(8, 5), mar = c(3, 2, 2, 0) + 0.1, mgp = c(1, 0.5, 0), oma = c(0, 2, 0, 0), las = 1)
+plot_subset_traj(sigma_biomass, sigma_10, sigma_20, sigma_30, sigma_40, ylim = ylim, param_info)
+dev.off()
+
+order_mu.star_10 = calculate_output_order_agreement(mu.star_biomass, mu.star_10, 10)
+order_mu.star_20 = calculate_output_order_agreement(mu.star_biomass, mu.star_20, 10)
+order_mu.star_30 = calculate_output_order_agreement(mu.star_biomass, mu.star_30, 10)
+order_mu.star_40 = calculate_output_order_agreement(mu.star_biomass, mu.star_40, 10)
+
+order_sigma_10 = calculate_output_order_agreement(sigma_biomass, sigma_10, 10)
+order_sigma_20 = calculate_output_order_agreement(sigma_biomass, sigma_20, 10)
+order_sigma_30 = calculate_output_order_agreement(sigma_biomass, sigma_30, 10)
+order_sigma_40 = calculate_output_order_agreement(sigma_biomass, sigma_40, 10)
+
+pdf(file.path(plotfolder, "traj_rank_mu.star_sigma_biomass.pdf"), width = 10, height = 8)
+par(mfrow = c(2, 1), mar = c(3, 3, 2, 0) + 0.1, mgp = c(1.5, 0.5, 0))
+plot_subset_order(order_mu.star_10, order_mu.star_20, order_mu.star_30, order_mu.star_40, legend = TRUE)
+title("mu.star")
+plot_subset_order(order_sigma_10, order_sigma_20, order_sigma_30, order_sigma_40, legend = FALSE)
+title("sigma")
 dev.off()
 
 #### --------------- simulations gone amok analysis ----------------------------------------------------

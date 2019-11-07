@@ -258,30 +258,98 @@ normalize_results_by_init = function(sim_results, init)
   return(sim_results)
 }
 
-sample_morris_output = function(consolidated_results, design_matrix, n_traj, n_sample, n_rep,
-                                effect = c("mu.star", "mu", "sigma"))
+design_sample = function(design_matrix, n_sample, n_rep)
 {
-  sims = consolidated_results$sim
-  sims_per_traj = length(sims)/n_traj
-  traj = rep(1:n_traj, each = sims_per_traj)
-
-  n_params = dim(design_matrix)[2] - 1  # subtract 1 for sim column
-  n_groups = dim(consolidated_results)[2] - 1 # ibed
-  results = array(NA, dim = c(n_params, n_groups, n_rep))
+  n_params = ncol(design_matrix) - 1  # subtract 1 for sim column
+  sims_per_traj = (n_params + 1)
+  n_traj = nrow(design_matrix) / sims_per_traj
+  
+  samples = list()
   
   for (i in 1:n_rep)
   {
-    traj_sample = sort(sample(1:n_traj, size = n_sample, replace = FALSE))
-    sims_sample = sims[traj %in% traj_sample]
+    samples[[i]] = sort(sample(1:n_traj, size = n_sample, replace = FALSE))
+  }
+  
+  return(samples)
+}
 
+sample_morris_output = function(consolidated_results, design_matrix, sample_design,
+                                effect = c("mu.star", "mu", "sigma"))
+{
+  # handle case that some sims from design matrix are missing from results, those trajectories with crashes
+  # we want to include them in the sampling to account for maybe having crashes in the subset
+  n_params = ncol(design_matrix) - 1  # subtract 1 for sim column
+  n_groups = ncol(consolidated_results) - 1 # ibed
+  sims_per_traj = (n_params + 1)
+  n_traj = nrow(design_matrix) / sims_per_traj
+  
+  sims = design_matrix$sim
+  traj = rep(1:n_traj, each = sims_per_traj)
+  
+  calculate_fun = match.fun(paste0("calculate_", effect))
+
+  results = array(NA, dim = c(n_params, n_groups, length(sample_design)))
+  
+  for (i in 1:length(sample_design))
+  {
+    traj_sample = sample_design[[i]]
+    sims_sample = sims[traj %in% traj_sample]
+    
     morris_sample = get_morris_output(design_matrix, 
                                       consolidated_results[consolidated_results$sim %in% sims_sample,])
     
-    results[,,i] = calculate_mu.star(morris_sample$ee)
+    results[,,i] = calculate_fun(morris_sample$ee)
   }
+  
   rownames(results) = dimnames(morris_sample$ee)[[2]] # traj are dim 1, params are dim 2, groups dim 3
   colnames(results) = dimnames(morris_sample$ee)[[3]] 
   
+  return(results)
+}
+
+# morris_out_base: 'expected' output, that of 50 traj
+# morris_out_samples: sampled output, calculated with sample_morris_output
+# top_n: how many parameters to consider
+calculate_output_order_agreement =function(morris_out_base, morris_out_samples, top_n)
+{
+  compare_order = function(a,b)
+  {
+    stopifnot(length(a) == length((b)))
+    
+    n_same = 0
+    
+    for (i in 1:(length(a) - 1))
+    {
+      for (j in (i + 1):length(a))
+      {
+        if (sign(a[i] - a[j]) == sign(b[i] - b[j]))
+        {
+          n_same = n_same + 1
+        }
+      }
+    }
+    
+    return(n_same / choose(length(a), 2))
+  }
+  
+  n_groups = ncol(morris_out_base)
+  n_reps = dim(morris_out_samples)[3]
+  results = array(NA, dim = c(n_reps, n_groups))
+  
+  for (j in 1:n_groups) # group
+  {
+    topn_param =  names(which(morris_out_base[,j] >= sort(morris_out_base[,j])[nrow(morris_out_base) - top_n + 1]))
+
+    for (k in 1:n_reps)
+    {
+      a = compare_order(morris_out_base[topn_param, j], morris_out_samples[topn_param, j, k])
+      results[k,j] = a
+    }
+    
+  }
+
+  colnames(results) = colnames(morris_out_base)
   return(results)
 }
 

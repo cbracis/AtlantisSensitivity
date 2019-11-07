@@ -236,3 +236,89 @@ plot_mu_vs_sigma_by_group = function(mu.star, sigma, param_info, group_info,
   mtext("sigma", side = 2, line = 0, cex = 1.5, outer = TRUE)
   
 }
+
+# assume we have 3 diff sample sizes of 10, 20, 30
+plot_subset_traj = function(mu.star, mu.star_10, mu.star_20, mu.star_30, mu.star_40, ylim = NULL, param_info)
+{
+  for (j in 1:ncol(mu.star)) # group
+  {
+    # note -4 not -5 to get 5th biggest
+    topx = 5 # num of params to consider
+    topx_param =  names(which(mu.star[,j] >= sort(mu.star[,j])[nrow(mu.star) - topx + 1]))
+    topx_vals = mu.star[topx_param, j]
+    topx_disp_name = param_info$displayName[match(topx_param, param_info$param_code)]
+    topx_disp_name = sub(" ", "\n", topx_disp_name, fixed = TRUE) # write on 2 lines or too long
+  
+    sub_10 = t(mu.star_10[topx_param, j,])
+    sub_20 = t(mu.star_20[topx_param, j,])
+    sub_30 = t(mu.star_30[topx_param, j,])
+    sub_40 = t(mu.star_40[topx_param, j,])
+    # combine but first normalize by value from 50 traj, not R divides matricies by col
+    out = cbind((sub_10 - topx_vals[col(sub_10)]) / topx_vals[col(sub_10)],
+                (sub_20 - topx_vals[col(sub_20)]) / topx_vals[col(sub_20)],
+                (sub_30 - topx_vals[col(sub_30)]) / topx_vals[col(sub_30)],
+                (sub_40 - topx_vals[col(sub_40)]) / topx_vals[col(sub_40)])
+  
+    # now need to reorder by param and not by num samples 1, 6, 11, 2, 7, ... if x = 5 and 3 samples each
+    out = out[, as.vector(sapply(1:topx, function(x) seq(from = x, by = topx, length = 4)))]
+    
+    if (is.null(ylim)) { ylim = range(out) }
+    yax = if ((j %% 5) == 1) { list() } else { list(yaxt = "n") }
+
+    boxplot(out, xlab = "", ylab = "", xaxt = "n", pars = yax, ylim = ylim,
+         col = c("gray80", "gray60", "gray40", "gray20"))
+    abline(h = 0, col = "red")
+    #abline(h = mu.star[topx_param,j], lty = 1:5)
+    mtext(topx_disp_name, side = 1, line = 1, at = seq(from = 2, by = 4, length = topx), cex = 0.5)
+    mtext(colnames(mu.star)[j], side = 3, line = 0.5)
+    
+    if (j == 1)
+    {
+      legend("topleft", legend = c(10, 20, 30, 40), fill = c("gray80", "gray60", "gray40", "gray20"), bty = "n", x.intersp=0.6, y.intersp=0.7)
+    }
+  }
+  mtext("error", side = 2, line = 0, cex = 1, outer = TRUE, las = 0)
+  
+}
+
+plot_subset_order = function(order_10, order_20, order_30, order_40, legend = TRUE)
+{
+  means = data.frame(code = colnames(order_10))
+  means$samp_10 = apply(order_10, 2, mean)
+  means$samp_20 = apply(order_20, 2, mean)
+  means$samp_30 = apply(order_30, 2, mean)
+  means$samp_40 = apply(order_40, 2, mean)
+  
+  sds = data.frame(code = colnames(order_10))
+  sds$samp_10 = apply(order_10, 2, sd)
+  sds$samp_20 = apply(order_20, 2, sd)
+  sds$samp_30 = apply(order_30, 2, sd)
+  sds$samp_40 = apply(order_40, 2, sd)
+  
+  n_group = nrow(means)
+  
+  plot(1:n_group - 0.3, means$samp_10, pch = 15, bty = "l", cex = 0.8,
+       xaxt = "n", xlim = c(1.5, n_group - 0.5), ylim = c(0, 1), xlab = "", ylab = "agreement")
+  segments(x0 = 1:n_group - 0.3, x1 = 1:n_group - 0.3, y0 = means$samp_10 - sds$samp_10, y1 = means$samp_10 + sds$samp_10)
+
+  points(1:n_group - 0.1, means$samp_20, pch = 16, cex = 0.8)
+  segments(x0 = 1:n_group - 0.1, x1 = 1:n_group - 0.1, y0 = means$samp_20 - sds$samp_20, y1 = means$samp_20 + sds$samp_20)
+
+  points(1:n_group + 0.1, means$samp_30, pch = 17,  cex = 0.8)
+  segments(x0 = 1:n_group + 0.1, x1 = 1:n_group + 0.1, y0 = means$samp_30 - sds$samp_30, y1 = means$samp_30 + sds$samp_30)
+
+  points(1:n_group + 0.3, means$samp_40, pch = 18)
+  segments(x0 = 1:n_group + 0.3, x1 = 1:n_group + 0.3, y0 = means$samp_40 - sds$samp_40, y1 = means$samp_40 + sds$samp_40)
+  
+  abline(v = seq(from = 1.5, to = n_group, by = 1), col = "gray80")
+  
+  mtext(means$code, side = 1, line = 0.5, at = 1:n_group, cex = 0.9, las = 2)
+  
+  if (legend)
+  {
+    legend("bottomright", legend = c(10, 20, 30, 40), pch = 15:18, pt.cex = c(0.8, 0.8, 0.8, 1), lty = 1, box.col = "white", bg = "white" )
+  }
+  
+  axis(1, lwd.tick=0, labels=FALSE) # redraw x-axis
+  
+}

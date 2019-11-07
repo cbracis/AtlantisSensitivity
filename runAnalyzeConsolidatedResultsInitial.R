@@ -429,17 +429,16 @@ most_most_influ[order(most_most_influ$Freq, decreasing = TRUE),]
 # analyze how sample size changes effects -----------------------------------------
 
 reps = 10
-n_traj = 45
-mu.star_10 = sample_morris_output(consolid_results, design_matrix, n_traj = n_traj, n_sample = 10, n_rep = reps)
-mu.star_15 = sample_morris_output(consolid_results, design_matrix, n_traj = n_traj, n_sample = 15, n_rep = reps)
-mu.star_20 = sample_morris_output(consolid_results, design_matrix, n_traj = n_traj, n_sample = 20, n_rep = reps)
-mu.star_25 = sample_morris_output(consolid_results, design_matrix, n_traj = n_traj, n_sample = 25, n_rep = reps)
-mu.star_30 = sample_morris_output(consolid_results, design_matrix, n_traj = n_traj, n_sample = 30, n_rep = reps)
-mu.star_35 = sample_morris_output(consolid_results, design_matrix, n_traj = n_traj, n_sample = 35, n_rep = reps)
+mu.star_10 = sample_morris_output(consolid_results, design_matrix, n_sample = 10, n_rep = reps)
+mu.star_15 = sample_morris_output(consolid_results, design_matrix, n_sample = 15, n_rep = reps)
+mu.star_20 = sample_morris_output(consolid_results, design_matrix, n_sample = 20, n_rep = reps)
+mu.star_25 = sample_morris_output(consolid_results, design_matrix, n_sample = 25, n_rep = reps)
+mu.star_30 = sample_morris_output(consolid_results, design_matrix, n_sample = 30, n_rep = reps)
+mu.star_35 = sample_morris_output(consolid_results, design_matrix, n_sample = 35, n_rep = reps)
 
 j = 15 # group
 pdf(file.path(plotfolder, paste0("test_traj-size_", colnames(mu.star_10)[j], ".pdf")), width = 18, height = 12)
-par(mfrow = c(7, 10), mar = c(2, 2, 2, 0), mgp = c(1, 0.5, 0))
+par(mfrow = c(9, 10), mar = c(2, 2, 2, 0), mgp = c(1, 0.5, 0))
 
 for (i in 1:nrow(mu.star_10)) # for each parameter
 {
