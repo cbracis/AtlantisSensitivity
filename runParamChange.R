@@ -3,34 +3,51 @@ source("changeMum.R")
 source("writeParams.R")
 source("plotParamValues.R")
 
-# this is for testing a few versions of new parameter values, not for SA
-
+# set file paths for necessary Atlantis files
 aeec_dir = "C:/Atlantis/AEEC_trunk1_testC" 
 base_biol_prm = file.path(aeec_dir, "AEEC_biol.prm")
 base_fgs = file.path(aeec_dir, "SETasGroups.csv")
 base_init = file.path(aeec_dir, "AEEC35_final_ini.nc")
 base_bgm = file.path(aeec_dir, "poly_atlantisEC35_projETRS89_LAEA_snapped0p002.bgm")
 
+#---------------------------------------------------------------------------------------------
+# fit function to C values for each group in biol prm file
+# this section is all that's needed to write the "fitted C values" file needed for the SA
+
 # exp function of init N
 C_values_e = fit_C_from_init_biomass(base_init, base_biol_prm, base_fgs, base_bgm,
                                      functionType = "exp", useWeights = FALSE)
 C_values_e$groupType = "age" # so far have just fit C for group type
 
-change_C_biol_file = create_file(aeec_dir, base_biol_prm, "changeC")
-write_params(change_C_biol_file, C_values_e, "C")
 
-# growth diff function of init N
-#C_values_g = fit_C_from_init_biomass(base_init, base_biol_prm, base_fgs, base_bgm,
- #                                    functionType = "growth")
 
 write.csv(C_values_e, file = "files/fitted_C_values.csv", quote = FALSE, row.names = FALSE)
 
-# stuff for mum
-#-------------------------------------------------------------------------------------------
-# note: here is where we add the column for the group type, should this all be done in a function??
-# the group type is required because the write functions depend on it
-# this all seems a little hacky as is
 
+#---------------------------------------------------------------------------------------------
+# the next sections are for testing the fitted C values, mum values based on those C values, and increases/decreases  
+# they are not used directly by the SA, but for pre-planning and testing the SA values to use
+#---------------------------------------------------------------------------------------------
+
+change_C_biol_file = create_file(aeec_dir, base_biol_prm, "changeC")
+write_params(change_C_biol_file, C_values_e, "C")
+
+
+# the other suggested function for C from the user guide that we didn't use
+
+# growth diff function of init N
+#C_values_g = fit_C_from_init_biomass(base_init, base_biol_prm, base_fgs, base_bgm,
+#                                    functionType = "growth")
+
+
+# add mum based on C fitted values
+#-------------------------------------------------------------------------------------------
+# note: column for the group type required because for write function, for age-structured or not
+# this is a little hacky and could be made into a function
+# 
+
+# get pool groups
+# set mum at 10*C (this is approx the relationship in calibrated model except zooplankton)
 C_pool = get_C_for_groups(base_biol_prm, base_fgs, get_pool_predators_group_codes(base_fgs), FALSE)
 C_pool = C_pool %>% select(Code, C = Value) %>% mutate(C = as.character(C))
 C_pool$groupType = "pool"
@@ -45,8 +62,7 @@ C10mum_values = C10mum_values %>% left_join(get_mum_for_groups(base_biol_prm, ba
                                                dplyr::rename(mumCalib = Value) %>% select(-Param),
                                             by = "Code")
 
-# NOTE: previously done with 10 when in fact the EEC model uses 3 as the multiplication factor!! (though 10 for inverts except zooplankton)
-# only use mum = 3 * C for age groups (trouble with inverts, see below for zooplankton)
+# NOTE: only use mum = 3 * C for age groups (inverts already added with factor of 10 above)
 C3mum_age_values = getMumAsFunctionofC(C_values_e %>% filter(groupType == GROUPS_AGE), 3)
 change_C3mum_age__biol_file = create_file(aeec_dir, base_biol_prm, "changeC3mumAge")
 write_params(change_C3mum_age__biol_file, C3mum_age_values, "C")

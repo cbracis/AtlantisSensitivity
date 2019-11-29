@@ -14,8 +14,12 @@ library(dplyr)
 
 # number of levels hard-coded to be 8
 
+# what values to multiply the baseline value by to get the parameter levels, the length determines the number of levels
 param_mult_factors = seq(from = -0.5, to = 1, len = 8) + 1
+# what value to multiply C by to get mum for age-structured groups
 mum_func_of_C_mult_factor = 3
+# which groups are bacteria, detritus, etc that shouldn't be included in the SA
+bacteria_detritus_types = c("SED_BACT", "PL_BACT", "LAB_DET", "REF_DET", "CARRION")
 
 # get age groups, ceph groups, and pool groups and need to know primary producers too
 
@@ -45,8 +49,6 @@ create_param_bounds = function(func_groups_data, param_values, fitted_C_values, 
 get_group_codes = function(species_groups_df)
 {
   # don't include disabled groups or bacteria, detritus, carrion in the analysis
-  # TODO move to utilityFuncs
-  bacteria_detritus_types = c("SED_BACT", "PL_BACT", "LAB_DET", "REF_DET", "CARRION")
   codes = species_groups_df %>% filter(IsTurnedOn == 1, !(GroupType %in% bacteria_detritus_types)) %>% pull(Code)
   return(codes)
 }

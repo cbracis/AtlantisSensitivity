@@ -44,10 +44,7 @@ process_atlantis_results = function(aeec_root_path, aeec_outdir, sim_id)
     file.create(file.path(aeec_outdir, paste0("atlantis_output_incorrect_length_sim", sim_id, ".txt")))
     
     num_years = attr(sim_good, 'n_years')
-    print(num_years)
-    print(floor(num_years / 5) * 5)
-    print(floor(num_years / 10) * 10)
-    
+
     five_year_avg = calculate_5_years(metrics, max_year = floor(num_years / 5) * 5, fgs = aeec_fgs)
     ten_year_avg = calculate_10_years(metrics, max_year = floor(num_years / 10) * 10, fgs = aeec_fgs)
 

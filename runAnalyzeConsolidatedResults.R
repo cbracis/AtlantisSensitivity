@@ -88,57 +88,32 @@ mu_nums = mu_nums[-which(rownames(mu_nums) == p_remove),]
 mu.star_nums = mu.star_nums[-which(rownames(mu.star_nums) == p_remove),]
 sigma_nums = sigma_nums[-which(rownames(sigma_nums) == p_remove),]
 
-# normalized versions
 
-mu_norm_biomass = normalize_effects_by_max(mu_biomass)
-mu.star_norm_biomass = normalize_effects_by_max(mu.star_biomass)
-sigma_norm_biomass = normalize_effects_by_max(sigma_biomass)
+# total biomass / numbers
 
-mu_norm_nums = normalize_effects_by_max(mu_nums)
-mu.star_norm_nums = normalize_effects_by_max(mu.star_nums)
-sigma_norm_nums = normalize_effects_by_max(sigma_nums)
+total_biomass = consolid_results_biomass %>% dplyr::select(-c("sim", "BB", "DET", "DL", "DR", "PB")) %>% rowSums()
+total_nums = consolid_results_nums %>% dplyr::select(-"sim") %>% rowSums()
 
+morris_out_total_biomass = get_morris_output(design_matrix, data.frame(sim = consolid_results_biomass$sim, 
+                                                                       bio = total_biomass))
+morris_out_total_nums = get_morris_output(design_matrix, data.frame(sim = consolid_results_nums$sim, 
+                                                                    nums = total_nums))
 
-# loook at important params by normalized effect size
-tot_effect_norm_biomass = data.frame(param = row.names(mu.star_norm_biomass), 
-                             totalMuStar = rowSums(mu.star_norm_biomass),
-                             totalSigma = rowSums(sigma_norm_biomass))
+mu_total_biomass = calculate_mu(morris_out_total_biomass$ee)
+mu.star_total_biomass = calculate_mu.star(morris_out_total_biomass$ee)
+sigma_total_biomass = calculate_sigma(morris_out_total_biomass$ee)
 
-tot_effect_norm_biomass[order(tot_effect_norm_biomass$totalMuStar, decreasing = TRUE),]
+mu_total_biomass = mu_total_biomass[-which(rownames(mu_total_biomass) == p_remove),]
+mu.star_total_biomass = mu.star_total_biomass[-which(rownames(mu.star_total_biomass) == p_remove),]
+sigma_total_biomass = sigma_total_biomass[-which(rownames(sigma_total_biomass) == p_remove),]
 
-tot_effect_norm_nums = data.frame(param = row.names(mu.star_norm_nums), 
-                                     totalMuStar = rowSums(mu.star_norm_nums),
-                                     totalSigma = rowSums(sigma_norm_nums))
+mu_total_nums = calculate_mu(morris_out_total_nums$ee)
+mu.star_total_nums = calculate_mu.star(morris_out_total_nums$ee)
+sigma_total_nums = calculate_sigma(morris_out_total_nums$ee)
 
-tot_effect_norm_nums[order(tot_effect_norm_nums$totalMuStar, decreasing = TRUE),]
-
-#init
-consolid_results_nums_init = normalize_results_by_init(consolid_results_nums, 
-                                                  group_info %>% dplyr::select(code, nums.init) %>% rename(val = nums.init))
-consolid_results_biomass_init = normalize_results_by_init(consolid_results_biomass, 
-                                                  group_info %>% dplyr::select(code, biomass.init) %>% rename(val = biomass.init))
-
-morris_out_nums_init = get_morris_output(design_matrix, consolid_results_nums_init)
-morris_out_biomass_init = get_morris_output(design_matrix, consolid_results_biomass_init)
-
-mu_norm_nums_init = calculate_mu(morris_out_nums_init$ee)
-mu.star_nums_init = calculate_mu.star(morris_out_nums_init$ee)
-sigma_nums_init = calculate_sigma(morris_out_nums_init$ee)
-
-mu_norm_biomass_init = calculate_mu(morris_out_biomass_init$ee)
-mu.star_biomass_init = calculate_mu.star(morris_out_biomass_init$ee)
-sigma_biomass_init = calculate_sigma(morris_out_biomass_init$ee)
-
-tot_effect_init_nums = data.frame(param = row.names(mu.star_nums_init), 
-                                  totalMuStar = rowSums(mu.star_nums_init),
-                                  totalSigma = rowSums(sigma_nums_init))
-tot_effect_init_nums[order(tot_effect_init_nums$totalMuStar, decreasing = TRUE),]
-
-tot_effect_init_biomass = data.frame(param = row.names(mu.star_biomass_init), 
-                                  totalMuStar = rowSums(mu.star_biomass_init),
-                                  totalSigma = rowSums(sigma_biomass_init))
-tot_effect_init_biomass[order(tot_effect_init_biomass$totalMuStar, decreasing = TRUE),]
-
+mu_total_nums = mu_total_nums[-which(rownames(mu_total_nums) == p_remove),]
+mu.star_total_nums = mu.star_total_nums[-which(rownames(mu.star_total_nums) == p_remove),]
+sigma_total_nums = sigma_total_nums[-which(rownames(sigma_total_nums) == p_remove),]
 
 #-------------------------------------------------------------------------------
 # stability
@@ -166,13 +141,6 @@ sum(per_stable_per_sim == 1) / length(per_stable_per_sim)
 
 summary(per_stable_per_sim)
 
-boxplot(per_stable_per_sim)
-
-barplot(mu_stability, beside = TRUE, 
-        ylab = "mu", las = 2, cex.names = 0.7,
-        names.arg = param_info$displayName[match(rownames(mu_stability), param_info$param_code)],
-        col = param_palatte[param_info$colIdx[match(rownames(mu_stability), param_info$param_code)]])
-points(1:length(mu.star_stability), mu.star_stability)
 
 mu_stability[order(mu_stability),] # values much smaller!
 
@@ -215,57 +183,77 @@ param_palatte = alpha(brewer.pal(3, "Dark2"), 1)
 param_info_plt = param_info[match(rownames(mu.star_stability), param_info$param_code),]
 #param_info_plt$invertIdx = param_info_plt$invertIdx + 15 # to make pts solid
 
-plot_lim = c(0, 1.05 * max(tot_effect_norm_biomass$totalMuStar, tot_effect_norm_biomass$totalSigma)) # to have asp = 1, using that makes x-axis neg in some cases
-plot(tot_effect_norm_biomass$totalMuStar, tot_effect_norm_biomass$totalSigma, 
+
+xs = switch(analysis, SA1 = log(mu.star_total_biomass), SA2 = mu.star_total_biomass ) 
+ys = switch(analysis, SA1 = log(sigma_total_biomass), SA2 = sigma_total_biomass ) 
+plot_lim = c(switch(analysis, SA1 = min(xs, ys), SA2 = 0), 1.05 * max(xs, ys)) # to have asp = 1, using that makes x-axis neg in some cases
+plot(xs, ys, 
      pch = param_info_plt$invertIdx, col = param_palatte[param_info_plt$colIdx], 
      xlim = plot_lim, ylim = plot_lim, 
-     xlab = "", ylab = "sigma", bty = "l", cex.lab = 1.2)
+     xlab = switch(analysis, SA1 = "log(mu.star)", SA2 = ""), ylab = switch(analysis, SA1 = "log(sigma)", SA2 = "sigma"), bty = "l", cex.lab = 1.2)
 label_pts = switch(analysis,
-                   SA1 = which(tot_effect_norm_biomass$totalMuStar > 5), # 5 for first_try
-                   SA2 = which(tot_effect_norm_biomass$totalSigma > 11) ) # for two_noPPP
+                   SA1 = which(xs > 17), # 5 for first_try
+                   SA2 = which(xs > 1e6) ) # for two_noPPP
 pos_pts = switch(analysis,
-                 SA1 = c(4, 4, 4, 3, 4, 4, 4, 4, 4, 4), # first_try
-                 SA2 = c(4, 2, 4, 4, 2, 4, 4, 1, 4, 2, 4, 4) ) # two_noPPP
-
-abline(a = 0, b = 0.1, lty = 2, col = alpha("black", 0.5))
-abline(a = 0, b = 0.5, lty = 3, col = alpha("black", 0.6))
-abline(a = 0, b = 1, lty = 4, col = alpha("black", 0.5))
-text(tot_effect_norm_biomass$totalMuStar[label_pts], tot_effect_norm_biomass$totalSigma[label_pts], 
+                 SA1 = c(4, 2, 4, 2, 2, 2, 4), # first_try
+                 SA2 = c(4, 1, 4, 4, 4, 4, 4, 4, 4, 2) ) # two_noPPP
+if (analysis == "SA1")
+{
+  abline(a = log(0.1), b = 1, lty = 2, col = alpha("black", 0.5))
+  abline(a = log(0.5), b = 1, lty = 3, col = alpha("black", 0.6))
+  abline(a = log(1), b = 1, lty = 4, col = alpha("black", 0.5))
+} else if (analysis == "SA2")
+{
+  abline(a = 0, b = 0.1, lty = 2, col = alpha("black", 0.5))
+  abline(a = 0, b = 0.5, lty = 3, col = alpha("black", 0.6))
+  abline(a = 0, b = 1, lty = 4, col = alpha("black", 0.5))
+}
+text(xs[label_pts], ys[label_pts], 
      labels = param_info_plt$code[label_pts], 
      pos = pos_pts, cex = 0.9, xpd = TRUE)
-mtext("Biomass (aggregated normalized effects)", side = 3, line = 1)
+mtext("Total biomass", side = 3, line = 1)
 
 legend("topleft", pch = c(19, 19, 19, 1, 2), 
        col = c(param_palatte, "black", "black"), 
        legend = c("growth", "mortality", "recruitment", "invertebrate", "vertebrate"), 
        bty = "n")
 
-plot_lim = c(0, 1.05 * max(tot_effect_norm_nums$totalMuStar, tot_effect_norm_nums$totalSigma)) 
-plot(tot_effect_norm_nums$totalMuStar, tot_effect_norm_nums$totalSigma, 
+xs = switch(analysis, SA1 = log(mu.star_total_nums), SA2 = mu.star_total_nums ) 
+ys = switch(analysis, SA1 = log(sigma_total_nums), SA2 = sigma_total_nums ) 
+plot_lim = c(switch(analysis, SA1 = min(xs, ys), SA2 = 0), 1.05 * max(xs, ys)) # to have asp = 1, using that makes x-axis neg in some cases
+plot(xs, ys, 
      pch = param_info_plt$invertIdx, col = param_palatte[param_info_plt$colIdx], 
      xlim = plot_lim, ylim = plot_lim, 
-     xlab = "mu.star", ylab = "", bty = "l", cex.lab = 1.2)
+     xlab = switch(analysis, SA1 = "log(mu.star)", SA2 = "mu.star"), ylab = "", bty = "l", cex.lab = 1.2)
 label_pts = switch(analysis,
-                   SA1 = which(tot_effect_norm_nums$totalMuStar > 2 | tot_effect_norm_nums$totalSigma > 2), # 2 for first_try
-                   SA2 = which(tot_effect_norm_nums$totalMuStar > 3 | tot_effect_norm_nums$totalSigma > 4.5) ) #4 for two_noPPP
+                   SA1 = which(xs > 21.5), # 2 for first_try
+                   SA2 = which(xs > 7e8) ) #4 for two_noPPP
 pos_pts = switch(analysis,
-                 SA1 = c(4, 4, 4, 4, 2, 4, 4, 4, 4, 1, 4, 4), # first_try
-                 SA2 = c(4, 2, 4, 1, 4, 4, 4, 4, 4, 4, 4, 4) ) #two_noPPP
+                 SA1 = c(2, 4, 4, 2, 4, 2, 2, 3, 3, 2, 1, 4), # first_try
+                 SA2 = c(4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4) ) #two_noPPP
 
-abline(a = 0, b = 0.1, lty = 2, col = alpha("black", 0.5))
-abline(a = 0, b = 0.5, lty = 3, col = alpha("black", 0.6))
-abline(a = 0, b = 1, lty = 4, col = alpha("black", 0.5))
-text(tot_effect_norm_nums$totalMuStar[label_pts], tot_effect_norm_nums$totalSigma[label_pts], 
+if (analysis == "SA1")
+{
+  abline(a = log(0.1), b = 1, lty = 2, col = alpha("black", 0.5))
+  abline(a = log(0.5), b = 1, lty = 3, col = alpha("black", 0.6))
+  abline(a = log(1), b = 1, lty = 4, col = alpha("black", 0.5))
+} else if (analysis == "SA2")
+{
+  abline(a = 0, b = 0.1, lty = 2, col = alpha("black", 0.5))
+  abline(a = 0, b = 0.5, lty = 3, col = alpha("black", 0.6))
+  abline(a = 0, b = 1, lty = 4, col = alpha("black", 0.5))
+}
+text(xs[label_pts], ys[label_pts], 
      labels = param_info_plt$code[label_pts], 
      pos = pos_pts, cex = 0.9, xpd = TRUE)
-mtext("Numbers (aggregated normalized effects)", side = 3, line = 1)
+mtext("Total numbers", side = 3, line = 1)
 
 
 plot_lim = c(0, 1.05 * max(mu.star_stability, sigma_stability) )
 plot(mu.star_stability, sigma_stability, 
      pch = param_info_plt$invertIdx, col = param_palatte[param_info_plt$colIdx], 
      xlim = plot_lim, ylim = plot_lim, 
-     xlab = "", ylab = "", bty = "l", cex.lab = 1.2)
+     xlab = switch(analysis, SA1 = "log(mu.star)", SA2 = ""), ylab = switch(analysis, SA1 = "log(sigma)", SA2 = ""), bty = "l", cex.lab = 1.2)
 label_pts = switch(analysis,
                    SA1 = which(mu.star_stability > 0.1), # 0.1 for first_try
                    SA2 = which(mu.star_stability > 0.05) ) # 0.0.05 for two_noPPP
@@ -429,6 +417,12 @@ title("mu.star")
 plot_subset_order(order_sigma_10, order_sigma_20, order_sigma_30, order_sigma_40, legend = FALSE)
 title("sigma")
 dev.off()
+
+summary(apply(order_mu.star_10, 2, mean))
+summary(apply(order_sigma_10, 2, mean))
+summary(apply(order_mu.star_40, 2, mean))
+summary(apply(order_sigma_40, 2, mean))
+
 
 #### --------------- simulations gone amok analysis ----------------------------------------------------
 range(consolid_results_biomass$CET)
