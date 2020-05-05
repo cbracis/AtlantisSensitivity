@@ -66,15 +66,20 @@ plot_ee_heatmap_by_guild = function(ee, name, param_info, group_info, title, ann
   row_annot = rowAnnotation(df = data.frame(guild = param_info$guild),
                             col = list(guild = guild_cols), show_annotation_name = FALSE)
   col_annot = columnAnnotation(df = data.frame(guild = group_info$guild),
-                               col = list(guild = guild_cols), show_annotation_name = FALSE)
-  type_annot = if (annotate_type) { rowAnnotation(df = data.frame(type = param_info$param_cat), col = list(type = type_cols))}
+                               col = list(guild = guild_cols), show_annotation_name = FALSE) 
+  type_annot = if (annotate_type) { rowAnnotation(df = data.frame(type = param_info$param_cat), 
+                                                  col = list(type = type_cols), show_annotation_name = FALSE,
+                                                  annotation_legend_param = list(type = list(title = "param. type")))}
                                   else { NULL }
   
   map = Heatmap(ee, name = name, column_title = title, row_title = "",
+                column_title_gp = gpar(fontsize = 24),
                 row_labels = param_info$displayName, 
                 row_names_gp = gpar(fontsize = 7), column_names_gp = gpar(fontsize = 9),
                 col = col, cluster_rows = FALSE, cluster_columns = FALSE,
-                left_annotation = row_annot, right_annotation = type_annot, top_annotation = col_annot, 
+                row_split = factor(param_info$guild, levels = guild_order), row_title_rot = 0,
+                column_split = factor(group_info$guild, levels = guild_order),
+                left_annotation = row_annot, right_annotation = type_annot, bottom_annotation = col_annot, 
                 ...)
   
   return(map)

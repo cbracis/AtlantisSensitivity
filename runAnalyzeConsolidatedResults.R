@@ -15,13 +15,13 @@ source("plotOutput.R")
 # output files
 #-----------------------------------------------------------------------------------
 
-SA1_biomass_file = "C:/Atlantis/AEEC_SA_test_output/output-consolid/SA_first_try/biomass.90.100_41_traj.csv"
-SA1_stability_file = "C:/Atlantis/AEEC_SA_test_output/output-consolid/SA_first_try/stability_biomass_slope_in_range.csv"
-SA1_nums_file = "C:/Atlantis/AEEC_SA_test_output/output-consolid/SA_first_try/nums.90.100_41_traj.csv"
+SA1_biomass_file = "./data/output-consolid/SA_first_try/biomass.90.100_41_traj.csv"
+SA1_stability_file = "./data/output-consolid/SA_first_try/stability_biomass_slope_in_range.csv"
+SA1_nums_file = "./data/output-consolid/SA_first_try/nums.90.100_41_traj.csv"
 
-SA2_biomass_file = "C:/Atlantis/AEEC_SA_test_output/output-consolid/SA_two_noPPP/biomass.90.100.csv"
-SA2_stability_file = "C:/Atlantis/AEEC_SA_test_output/output-consolid/SA_two_noPPP/stability_biomass_slope_in_range.csv"
-SA2_nums_file = "C:/Atlantis/AEEC_SA_test_output/output-consolid/SA_two_noPPP/nums.90.100.csv"
+SA2_biomass_file = "./data/output-consolid/SA_two_noPPP/biomass.90.100.csv"
+SA2_stability_file = "./data/output-consolid/SA_two_noPPP/stability_biomass_slope_in_range.csv"
+SA2_nums_file = "./data/output-consolid/SA_two_noPPP/nums.90.100.csv"
 
 #-----------------------------------------------------------------------------------
 # SA_first try
@@ -88,6 +88,14 @@ mu_nums = mu_nums[-which(rownames(mu_nums) == p_remove),]
 mu.star_nums = mu.star_nums[-which(rownames(mu.star_nums) == p_remove),]
 sigma_nums = sigma_nums[-which(rownames(sigma_nums) == p_remove),]
 
+# normalized versions
+mu_norm_biomass = normalize_effects_by_max(mu_biomass)
+mu.star_norm_biomass = normalize_effects_by_max(mu.star_biomass)
+sigma_norm_biomass = normalize_effects_by_max(sigma_biomass)
+
+mu_norm_nums = normalize_effects_by_max(mu_nums)
+mu.star_norm_nums = normalize_effects_by_max(mu.star_nums)
+sigma_norm_nums = normalize_effects_by_max(sigma_nums)
 
 # total biomass / numbers
 
@@ -280,18 +288,23 @@ dev.off()
 mu.star_plot = plot_ee_heatmap_by_guild(mu.star_norm_biomass, "mu.star", param_info, group_info, title = "mu.star")
 mu_plot = plot_ee_heatmap_by_guild(mu_norm_biomass, "mu", param_info, group_info, col = diverging_palette(), title = "mu")
 sigma_plot = plot_ee_heatmap_by_guild(sigma_norm_biomass, "sigma", param_info, group_info, title = "sigma", annotate_type = TRUE)
+maps = mu.star_plot + mu_plot + sigma_plot
 
 pdf(file = file.path(plotfolder, "guild_all_norm_unit_biomass.pdf"), width = 24, height = 12)
-mu.star_plot + mu_plot + sigma_plot
+draw(maps, row_title = "Input parameter", row_title_side = "right", row_title_gp = gpar(fontsize = 20),
+     column_title = "Output group biomass", column_title_side = "bottom", column_title_gp = gpar(fontsize = 20))
 dev.off()
 
 
 mu.star_plot = plot_ee_heatmap_by_guild(mu.star_norm_nums, "mu.star", param_info, group_info, title = "mu.star")
 mu_plot = plot_ee_heatmap_by_guild(mu_norm_nums, "mu", param_info, group_info, col = diverging_palette(), title = "mu")
 sigma_plot = plot_ee_heatmap_by_guild(sigma_norm_nums, "sigma", param_info, group_info, title = "sigma", annotate_type = TRUE)
+maps = mu.star_plot + mu_plot + sigma_plot
 
 pdf(file = file.path(plotfolder, "guild_all_norm_unit_nums.pdf"), width = 24, height = 12)
-mu.star_plot + mu_plot + sigma_plot
+draw(maps, row_title = "Input parameter", row_title_side = "right", row_title_gp = gpar(fontsize = 20),
+     column_title = "Output group numbers", column_title_side = "bottom", column_title_gp = gpar(fontsize = 20))
+dev.off()
 dev.off()
 
 # -------------individual group plots --------------------------------------
@@ -472,6 +485,35 @@ nrow(crash_sims_cet)
 # summary crash happens when mL_CET_juv == 1 and KDENR_CET_single >= 5, this happened for 9 trajectories
 # however, two trajectories when KDENR_CET_single == 5 and didn't crash and one that did, so a bit more marginal
 # and somewhat dependant on other parameters for state of ecosystem
+
+#### --------------- reviewer concern with growth rates of PP and ZOO  ----------------------------------------------------
+
+# needs to be SA_first_try!
+mu_biomass_ee = morris_out_biomass$ee
+pp_growth_ee = mu_biomass_ee[,which(dimnames(mu_biomass_ee)[[2]] == "mum_PP_single"),]
+zoo_growth_ee = mu_biomass_ee[,which(dimnames(mu_biomass_ee)[[2]] == "C_ZOO_single"),]
+
+design_matrix_sub = design_matrix %>% filter(simID %in% consolid_results_biomass$sim) 
+traj = rep(1:41, each = 91)
+trajectories = data.frame(traj_num = 1:41)
+trajectories = cbind( trajectories, pp_start_val = tapply(design_matrix_sub[,"mum_PP_single"], traj, head, n = 1))
+trajectories = cbind( trajectories, zoo_start_val = tapply(design_matrix_sub[,"C_ZOO_single"], traj, head, n = 1))
+trajectories = cbind( trajectories, pp_end_val = tapply(design_matrix_sub[,"mum_PP_single"], traj, tail, n = 1))
+trajectories = cbind( trajectories, zoo_end_val = tapply(design_matrix_sub[,"C_ZOO_single"], traj, tail, n = 1))
+trajectories = cbind( trajectories, pp_change = tapply(design_matrix_sub[,"mum_PP_single"], traj, function(x) which(diff(x) != 0) + 1 ))
+trajectories = cbind( trajectories, zoo_change = tapply(design_matrix_sub[,"C_ZOO_single"], traj, function(x) which(diff(x) != 0) + 1 ))
+trajectories = cbind( trajectories, pp_at_zoo_change = sapply(1:41, 
+                        function(r) if(trajectories$pp_change[r] > trajectories$zoo_change[r]) {trajectories$pp_start_val[r]} else {trajectories$pp_end_val[r]}))
+trajectories = cbind( trajectories, zoo_at_pp_change = sapply(1:41, 
+                         function(r) if(trajectories$zoo_change[r] > trajectories$pp_change[r]) {trajectories$zoo_start_val[r]} else {trajectories$zoo_end_val[r]}))
+
+table(trajectories$pp_at_zoo_change)
+table(trajectories$zoo_at_pp_change)
+
+pp_growth_mean_ee_by_zoo = aggregate(pp_growth_ee, by = list(trajectories$zoo_at_pp_change), FUN = mean)
+zoo_growth_mean_ee_by_pp = aggregate(zoo_growth_ee, by = list(trajectories$pp_at_zoo_change), FUN = mean)
+
+write.csv(t(zoo_growth_mean_ee_by_pp), file = file.path(plotfolder, "zoo_growth_mean_ee_by_pp.csv"), quote = FALSE)
 
 ############################################################################################
 

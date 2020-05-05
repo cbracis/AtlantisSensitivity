@@ -5,6 +5,9 @@ getMatrixFromAgeParamVec = function(params)
   return(as.matrix(read.table(text = as.character(params))))
 }
 
+# function that can be passed to apply as FUN to do nothing
+noop <- function(p) { return(p) }
+
 # types of groups
 # pool - those without age structured parameters
 GROUPS_POOL = "pool"
